@@ -1,5 +1,5 @@
-import { Stream } from "../stream/stream";
-import { Engine } from "./engine";
+import { Stream } from "../stream/stream.js";
+import { Engine } from "./engine.js";
 
 let streamErrorCounter: { [streamID: string]: number } = {} // streamID to count
 /**

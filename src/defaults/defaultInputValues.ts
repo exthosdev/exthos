@@ -1,4 +1,4 @@
-import { TInput } from "../types/inputs"
+import { TInput } from "../types/inputs.js"
 
 const defaultInputValues: TInput = {//TInputGenerate | TInputStdin | TInputFile | TInputInPort | TInputRedisStreams | TInputBroker = {
     label: "",

@@ -1,4 +1,4 @@
-import { TProcessor } from "../types/processors"
+import { TProcessor } from "../types/processors.js"
 
 const defaultProcessorValues: TProcessor = {
     label: "",

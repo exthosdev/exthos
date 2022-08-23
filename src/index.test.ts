@@ -1,14 +1,18 @@
-import exthos_1 from "./index.js"
-import * as exthos_2 from "./index.js"
+import exthos from "./index"
+// OR: import * as exthos_2 from "./index.js"
 
-// High level APIs
-exthos_1.from
-exthos_1.engine
-//or
-exthos_2.from
-exthos_2.engine
+describe('test group description', () => {
+    beforeAll(() => {
+        // do something
+    });
 
+    // test that promise resolves
+    test('start and stop engine', async () => {          // note the async keyword here
+        expect.assertions(2)
+        let promStart = exthos.engine.start()
+        await expect(promStart).resolves.not.toThrow()
 
-// Low level APIs
-exthos_2.Engine
-exthos_2.Stream
+        let promStop = exthos.engine.stop()
+        await expect(promStop).resolves.not.toThrow()
+    })
+})

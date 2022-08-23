@@ -1,4 +1,4 @@
-import { TOutput } from "../types/outputs"
+import { TOutput } from "../types/outputs.js"
 
 const defaultOutputValues: TOutput = { //TOutputStdout | TOutputFile | TOutputHttpClient | TOutputAzureBlobStorage = {
     label: "",

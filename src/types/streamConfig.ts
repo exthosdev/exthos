@@ -1,6 +1,6 @@
-import { TInput } from "./inputs"
-import { TOutput } from "./outputs"
-import { TProcessor } from "./processors"
+import { TInput } from "./inputs.js"
+import { TOutput } from "./outputs.js"
+import { TProcessor } from "./processors.js"
 
 // type TStreamConfig = {
 //     input: TInput,

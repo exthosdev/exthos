@@ -55,9 +55,9 @@ class Stream {
             autostart = false
         }
 
-        this.#debug("received streamConfig:\n", JSON.stringify(this.#streamConfig, null, 2))
+        this.#debug("received streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
         this._sanitizeStreamConfigNWriteToStreamConfigFilePath()
-        this.#debug("sanitized streamConfig:\n", JSON.stringify(this.#streamConfig, null, 2))
+        this.#debug("sanitized streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
 
         if (autostart) {
             this.start()

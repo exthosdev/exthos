@@ -78,13 +78,24 @@ class Engine extends EngineProcessAPI {
     private _engineProcess!: ExecaChildProcess<string>
     private _abortController = new AbortController();
     private _shutdownAfterInactivityFor: number = 10000              // should usually be more than self._waitForActiveEventMs
-                                                                    // must be more than _mgmtEventsFreqMs
+    // must be more than _mgmtEventsFreqMs
     private _mgmtEventsFreqMs: number = 2000
     private _waitForActiveEventMs: number = 1000
     private _keepAliveInterval!: NodeJS.Timeout //= setInterval(() => { }, 1 << 30);   // TODO: this should only be used in remote mode
-    private _debug = debug("exthos").extend("engine:debug")
+
+    /**
+     * debug is used heavily; 
+     * exthos:engine:log - give general debug logs
+     * exthos:engine:event - print all the events as they are emitted
+     * exthos:engine:trace - prints trace information showing flow of code
+     */
+    private _debug = debug("exthos").extend("engine")
+    private _debugLog = this._debug.extend("log")
+    private _trace = this._debug.extend("trace")    // used to print trace lines e.g. line numbers
+    private _event = this._debug.extend("event")    // used to print trace lines e.g. line numbers
+
     private _isActive: boolean = false                              // engine uses the /ping api to change this state
-    private _engineStartStopMutex = new Mutex()
+    private _engineInitStartStopMutex = new Mutex()
     private _engineStreamAddUpdateRemoveMutex = new Mutex()
 
     private _isLocal: boolean = true
@@ -94,13 +105,13 @@ class Engine extends EngineProcessAPI {
     private _streamsMap: { [key: string]: Stream } = {}
 
     public engineEvents = engineEventsEnums
-    // public engineEvents!: engineEventsTypes
+
     // override emit to allow only engineEventsTypes
     public emit: (event: engineEventsTypes, eventObj: EventObj, ...values: any[]) => boolean =
         (event: engineEventsTypes, eventObj: EventObj, ...values: any[]) => {
+            this._event(event, JSON.stringify(eventObj))
             return super.emit(event as string, eventObj, ...values)
         }
-
 
     public get numStreams(): number {
         try {
@@ -111,6 +122,8 @@ class Engine extends EngineProcessAPI {
     }
 
     setEngineOptions(engineConfig?: Partial<EngineConfig>, engineOpts?: { isLocal?: boolean, debugNamespace?: string }) {
+        let self = this
+        self._debugLog(`setEngineOptions called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         // take care of engineOpts
         if (engineOpts === undefined) {
             engineOpts = {}
@@ -137,9 +150,9 @@ class Engine extends EngineProcessAPI {
         } else {
             this._engineConfig = { ...defaultEngineConfig, ...this._engineConfig, ...engineConfig } // shallow assign/merge
         }
-        this._debug("received engineConfig:\n", JSON.stringify(engineConfig, null, 2))
+        this._debugLog("received engineConfig:\n", JSON.stringify(engineConfig, null, 0))
         this._writeToEngineConfigFilePath()
-        this._debug("sanitized engineConfig:\n", JSON.stringify(this._engineConfig, null, 2))
+        this._debugLog("sanitized engineConfig:\n", JSON.stringify(this._engineConfig, null, 0))
 
         this._scheme = (this._engineConfig.http.cert_file && this._engineConfig.http.key_file) ? "https" : "http"
         this._axiosInstance = axios.create({ baseURL: `${this._scheme}://${this._engineConfig.http.address}` })
@@ -147,7 +160,7 @@ class Engine extends EngineProcessAPI {
             retries: 3,
             retryDelay: axiosRetry.exponentialDelay,
             onRetry: (retryCount, err, requestConfig) => {
-                this._debug(`retrying (do not panic): ${requestConfig.url}`, JSON.stringify({ retryCount: retryCount, error: err.toJSON() }))
+                this._debugLog(`retrying (do not panic): ${requestConfig.url}`, JSON.stringify({ retryCount: retryCount, error: err.toJSON() }))
             }
         });
     }
@@ -161,56 +174,45 @@ class Engine extends EngineProcessAPI {
     constructor(engineConfig?: Partial<EngineConfig>, engineOpts?: { isLocal?: boolean, debugNamespace?: string }) {
         // TODO: , autostart?: boolean
         super()
-        // if (engineOpts === undefined) {
-        //     engineOpts = {}
-        // }
-
-        // if (engineOpts.isLocal === undefined) {
-        //     engineOpts.isLocal = true
-        // }
-        // this._isLocal = engineOpts.isLocal
-
-        // if (engineOpts.debugNamespace === undefined) {
-        //     engineOpts.debugNamespace = ""
-        // }
-        // this._debugNamespace = engineOpts.debugNamespace
-        // // add this._debugNamespace to existing debug namespace
-
-        // if (this._debugNamespace) {
-        //     let prevNamespaces = debug.disable()
-        //     debug.enable([prevNamespaces, this._debugNamespace].join(","));
-        // }
-        this.setEngineOptions(engineConfig, engineOpts)
-        // this._engineConfig = { ...defaultEngineConfig, ...engineConfig } // shallow assign/merge
-        // this._debug("received config engine:\n", JSON.stringify(engineConfig, null, 2))
-        // this._writeToEngineConfigFilePath()
-        // this._debug("sanitized config engine:\n", JSON.stringify(this._engineConfig, null, 2))
-
-        // this._scheme = (this._engineConfig.http.cert_file && this._engineConfig.http.key_file) ? "https" : "http"
-        // this._axiosInstance = axios.create({ baseURL: `${this._scheme}://${this._engineConfig.http.address}` })
-        // axiosRetry(this._axiosInstance, {
-        //     retries: 3,
-        //     retryDelay: axiosRetry.exponentialDelay,
-        //     onRetry: (retryCount, err, requestConfig) => {
-        //         this._debug(`retrying (do not panic): ${requestConfig.url}`, JSON.stringify({ retryCount: retryCount, error: err.toJSON() }))
-        //     }
-        // });
-
         let self = this
+        self._trace(`constructor called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
 
-        // engine.active/inactive to mutate the isActive on the engine        
-        self.on(self.engineEvents["engine.active"], () => {
-            self._isActive = true
+        self._engineInitStartStopMutex.runExclusive(() => {
+
+            this.setEngineOptions(engineConfig, engineOpts)
+            let self = this
+
+            // engine.active/inactive to mutate the isActive on the engine        
+            self.on(self.engineEvents["engine.active"], () => {
+                self._isActive = true
+            })
+            self.on(self.engineEvents["engine.inactive"], () => {
+                self._isActive = false
+            })
+            self.on(self.engineEvents["engine.stream.fatal"], (eventObj: EventObj) => {
+                self._removeProm(eventObj.msg, eventObj.stream)
+            })
+            self.on(self.engineEvents["engine.fatal"], (eventObj: EventObj) => {
+                self.stop(eventObj.msg)
+            })
         })
-        self.on(self.engineEvents["engine.inactive"], () => {
-            self._isActive = false
-        })
-        self.on(self.engineEvents["engine.stream.fatal"], (eventObj: EventObj) => {
-            self._removeProm(eventObj.msg, eventObj.stream)
-        })
-        self.on(self.engineEvents["engine.fatal"], (eventObj: EventObj) => {
-            self.stop(eventObj.msg)
-        })
+        // super()
+        // this.setEngineOptions(engineConfig, engineOpts)
+
+
+        // // engine.active/inactive to mutate the isActive on the engine        
+        // self.on(self.engineEvents["engine.active"], () => {
+        //     self._isActive = true
+        // })
+        // self.on(self.engineEvents["engine.inactive"], () => {
+        //     self._isActive = false
+        // })
+        // self.on(self.engineEvents["engine.stream.fatal"], (eventObj: EventObj) => {
+        //     self._removeProm(eventObj.msg, eventObj.stream)
+        // })
+        // self.on(self.engineEvents["engine.fatal"], (eventObj: EventObj) => {
+        //     self.stop(eventObj.msg)
+        // })
 
     }
 
@@ -221,16 +223,18 @@ class Engine extends EngineProcessAPI {
      */
     async start(): Promise<Engine> {
         let self = this
-        return await self._engineStartStopMutex.runExclusive(async () => {
+        self._trace(`start called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+
+        return await self._engineInitStartStopMutex.runExclusive(async () => {
             if (this._isActive) {
                 // make sure engine is started after a mutex is acquired
-                self._debug("engine isActive=true, ignoring the call to start()")
+                self._debugLog("engine isActive=true, ignoring the call to start()")
                 return self
             }
 
             try {
                 if (this._isLocal) {
-                    self._debug("isLocal=true")
+                    self._debugLog("isLocal=true")
                     /**
                      * tempLocalServer check
                      */
@@ -238,7 +242,7 @@ class Engine extends EngineProcessAPI {
 
 
                         // check if address is local and we can bind to it
-                        self._debug("creating tempLocalServer to establish ADDR, PORT availability")
+                        self._debugLog("creating tempLocalServer to establish ADDR, PORT availability")
                         self._tempLocalServer = net.createServer()
                         let host = self._engineConfig.http.address.split(":")[0]
                         let port = self._engineConfig.http.address.split(":")[1]
@@ -247,7 +251,7 @@ class Engine extends EngineProcessAPI {
                         let isListeningDeferred = new Deferred()
                         self._tempLocalServer.on("listening", () => {
                             isListeningDeferred.resolve("deferred_listening")
-                            self._debug("tempLocalServer is listening")
+                            self._debugLog("tempLocalServer is listening")
                         })
 
                         // _tempLocalServer error event
@@ -257,7 +261,7 @@ class Engine extends EngineProcessAPI {
                             if (!e) {
                                 isErrorDeferred.resolve()
                             } else {
-                                self._debug("tempLocalServer errored out", e)
+                                self._debugLog("tempLocalServer errored out", e)
                                 // self.emit(self.engineEvents["engine.error"], { msg: `unable to start tempLocalServer ${e.code ? e.code : ""} ${e.message ? e.message : ""}` })
                                 isErrorDeferred.reject(e)
                             }
@@ -282,14 +286,14 @@ class Engine extends EngineProcessAPI {
                                 self._tempLocalServer.unref();
                                 isCloseErrorDeferred.resolve()
                             } else {
-                                self._debug("tempLocalServer errored out", e)
+                                self._debugLog("tempLocalServer errored out", e)
                                 self.emit(self.engineEvents["engine.error"], { msg: `unable to close tempLocalServer ${e.code ? e.code : ""} ${e.message ? e.message : ""}` })
                                 isCloseErrorDeferred.reject(e)
                             }
                         })
 
                         await isCloseErrorDeferred.promise
-                        self._debug("tempLocalServer closed, i.e. listening=", self._tempLocalServer.listening)
+                        self._debugLog("tempLocalServer closed, i.e. listening=", self._tempLocalServer.listening)
                     } catch (e: any) {
                         self.emit(self.engineEvents["engine.fatal"], { msg: `unable to start tempLocalServer ${e.code ? e.code : ""} ${e.message ? e.message : ""}` })
                         return self
@@ -395,11 +399,11 @@ class Engine extends EngineProcessAPI {
                         self.emit(self.engineEvents["engine.fatal"], { msg: "engineProcess=isLocal. first ping failed" })
                         return self
                     }
-                    self._startMgmtEvents()
+                    // self._startMgmtEvents()
 
                 } else {
                     // remote servier, so nothing to 
-                    self._debug("isLocal=false")
+                    self._debugLog("isLocal=false")
                     try {
                         await self._apiGetPing({ "axios-retry": { retries: 3 } })
                         self.emit(self.engineEvents["engine.active"], { msg: "engineProcess<>isLocal. first ping pass & marked active" })
@@ -407,21 +411,22 @@ class Engine extends EngineProcessAPI {
                         self.emit(self.engineEvents["engine.fatal"], { msg: "engineProcess<>isLocal. first ping failed" })
                         return self
                     }
-                    self._startMgmtEvents()
+                    // self._startMgmtEvents()
                 }
 
                 if (self.numStreams > 0) {
                     await self._addProm(...Object.values(self._streamsMap))
                 }
 
-                self._debug("waiting for event=engine.active before finish of start")
+                self._startMgmtEvents()
+                self._debugLog("waiting for event=engine.active before finish of start")
                 await EventEmitter2.once(self, self.engineEvents["engine.active"])
                 // start the _keepAliveInterval
                 self._keepAliveInterval = setInterval(() => { }, 1 << 30);
                 return self
             } catch (e: any) {
                 self.emit(self.engineEvents["engine.fatal"], { msg: `start failed: ${e.message}` })
-                self._debug("start failed, stopping engine", e)
+                self._debugLog("start failed, stopping engine", e)
                 return self
             }
         })
@@ -442,15 +447,16 @@ class Engine extends EngineProcessAPI {
             force = false
         }
         let self = this
-        return await self._engineStartStopMutex.runExclusive(async () => {
+        self._trace(`stop called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
 
+        return await self._engineInitStartStopMutex.runExclusive(async () => {
             // if engine is not active, wait for it
             if (!self._isActive) {
-                self._debug("waiting for event=engine.active for 2 seconds before stopping")
+                self._debugLog("waiting for event=engine.active for 2 seconds before stopping")
                 try {
                     await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs) // TODO test: is it 2 seconds? or ms // should be configurable                    
                 } catch (e) {
-                    self._debug("engine isActive=false, ignoring the call to stop()")
+                    self._debugLog("engine isActive=false, ignoring the call to stop()")
                     clearInterval(self._keepAliveInterval)
                     return self
                 }
@@ -459,7 +465,7 @@ class Engine extends EngineProcessAPI {
             // is active at this point
 
             // remove all streams first
-            self._debug("removing streams before stopping")
+            self._debugLog("removing streams before stopping")
             await self._removeProm(...Object.values(self._streamsMap))
 
             if (self._isLocal) {
@@ -476,20 +482,29 @@ class Engine extends EngineProcessAPI {
             // perform regardless of local or not
             clearInterval(self._keepAliveInterval)
             self.emit(self.engineEvents["engine.inactive"], { msg: `stopped successfully` + (reason ? (". reason:" + reason) : "") })
+            self._debugLog(`engine stopped successfully` + (reason ? (". reason:" + reason) : ""))
             return self
         })
     }
 
     private async _startMgmtEvents() {
         let self = this
+        self._trace(`_startMgmtEvents called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+
         let shutDownTimer: NodeJS.Timer
         do {
             try {
+                if (!self._isActive) {
+                    self._debugLog("engine is not active. existing mgmt event loop")
+                    clearTimeout(shutDownTimer!) // to clearTimout if a stream existed since the timeout was started
+                    shutDownTimer!.unref()
+                    break;
+                }
                 // shutdown if no streams running for 
 
                 if (self.numStreams === 0 && !(shutDownTimer! !== undefined && shutDownTimer!.hasRef())) {
                     // schedule to stop engine after n seconds ONLY if numStreams is till 0
-                    self._debug(`engine.stop will be called if no streams exist for the next ${self._shutdownAfterInactivityFor}ms`)
+                    self._debugLog(`engine.stop will be called if no streams exist for the next ${self._shutdownAfterInactivityFor}ms`)
                     shutDownTimer = setTimeout(() => {
                         if (self.numStreams === 0) {
                             self.stop(`no streams for the last ${self._shutdownAfterInactivityFor}ms`)
@@ -504,10 +519,10 @@ class Engine extends EngineProcessAPI {
                  */
                 // if engine is not active, wait for it
 
-                if (!self._isActive) {
-                    self._debug("waiting for event=engine.active before ping")
-                    await EventEmitter2.once(self, self.engineEvents["engine.active"])
-                }
+                // if (!self._isActive) {
+                //     self._debug("waiting for event=engine.active before ping")
+                //     await EventEmitter2.once(self, self.engineEvents["engine.active"])
+                // }
                 try {
                     await self._apiGetPing({ "axios-retry": { retries: 0 } })
                 } catch (e) {
@@ -522,7 +537,7 @@ class Engine extends EngineProcessAPI {
                 for (let stream of Object.values(self._streamsMap)) {
                     // if engine is not active, wait for it
                     if (!self._isActive) {
-                        self._debug("waiting for event=engine.active before cleanup")
+                        self._debugLog("waiting for event=engine.active before cleanup")
                         await EventEmitter2.once(self, self.engineEvents["engine.active"])
                     }
                     let resp = await self._apiGetStreamReady(stream, {
@@ -548,12 +563,14 @@ class Engine extends EngineProcessAPI {
 
     public add(...streams: Stream[]): Engine {
         let self = this
+        self._trace(`add called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         self._addProm(...streams)
         return self
     }
 
     public update(...streams: Stream[]): Engine {
         let self = this
+        self._trace(`update called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         self._updateProm(...streams)
         return self
     }
@@ -562,6 +579,7 @@ class Engine extends EngineProcessAPI {
     public remove(reason: string, ...streams: Stream[]): Engine;
     public remove(...streamsWWOReason: any[]): Engine {
         let self = this
+        self._trace(`remove called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         self._removeProm(...streamsWWOReason)
         return self
     }
@@ -572,12 +590,14 @@ class Engine extends EngineProcessAPI {
      */
     private async _addProm(...streams: Stream[]): Promise<Engine> {
         let self = this
+        self._trace(`_addProm called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+
         return await self._engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
             if (!self._isActive) {
                 try {
                     await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs)
                 } catch (e) {
-                    self._debug("engine isActive=false, skipping _apiPostStream")
+                    self._debugLog("engine isActive=false, skipping _apiPostStream")
                     return self
                 }
             }
@@ -587,9 +607,9 @@ class Engine extends EngineProcessAPI {
                     await self._apiPostStream(stream)
                     self._streamsMap[stream.streamID] = stream
                     this.emit(self.engineEvents["engine.add.stream"], { msg: `stream added to engine`, stream })
-                    self._debug(`stream [ID=${stream.streamID}] added to engine`)
+                    self._debugLog(`stream [ID=${stream.streamID}] added to engine`)
                 } catch (e: any) {
-                    self._debug(`stream [ID=${stream.streamID}] add to engine failed`, e)
+                    self._debugLog(`stream [ID=${stream.streamID}] add to engine failed`, e)
                     self.emit(self.engineEvents["engine.error.stream"], { msg: `stream add to engine failed: ${e.message}`, stream })
                 }
             }
@@ -604,12 +624,14 @@ class Engine extends EngineProcessAPI {
      */
     private async _updateProm(...streams: Stream[]): Promise<Engine> {
         let self = this
+        self._trace(`_updateProm called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+
         return await self._engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
             if (!self._isActive) {
                 try {
                     await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs)
                 } catch (e) {
-                    self._debug("engine isActive=false, skipping _apiPutStream")
+                    self._debugLog("engine isActive=false, skipping _apiPutStream")
                     return self
                 }
             }
@@ -619,9 +641,9 @@ class Engine extends EngineProcessAPI {
                     await self._apiPutStream(stream)
                     self._streamsMap[stream.streamID] = stream
                     this.emit(self.engineEvents["engine.update.stream"], { msg: `stream updated to engine`, stream })
-                    self._debug(`stream [ID=${stream.streamID}] updated to engine`)
+                    self._debugLog(`stream [ID=${stream.streamID}] updated to engine`)
                 } catch (e: any) {
-                    self._debug(`stream [ID=${stream.streamID}] update to engine failed`, e)
+                    self._debugLog(`stream [ID=${stream.streamID}] update to engine failed`, e)
                     self.emit(self.engineEvents["engine.error.stream"], { msg: `stream update to engine failed: ${e.message}`, stream })
                 }
             }
@@ -642,32 +664,34 @@ class Engine extends EngineProcessAPI {
             streams = streamsWWOReason
         }
         let self = this
-        self._debug(`_removeProm called for streams: ${streams.map(s => s.streamID)}`)
+        self._trace(`_removeProm called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        self._debugLog(`_removeProm called for streams: ${streams.map(s => s.streamID)}`)
+
         return await self._engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
             if (!self._isActive) {
                 try {
                     await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs)
                 } catch (e) {
-                    self._debug("engine isActive=false, skipping _apiDeleteStream")
+                    self._debugLog("engine isActive=false, skipping _apiDeleteStream")
                     return self
                 }
             }
 
             if (streams.length === 0) {
-                self._debug("no stream to remove")
+                self._debugLog("no stream to remove")
             }
             for (let stream of streams) {
                 try {
                     if (!self._streamsMap[stream.streamID]) {
-                        self._debug(`stream [ID=${stream.streamID}] not present in engine streamMap. possibly already removed`)
+                        self._debugLog(`stream [ID=${stream.streamID}] not present in engine streamMap. possibly already removed`)
                         continue;
                     }
                     await self._apiDeleteStream(stream)
                     delete self._streamsMap[stream.streamID]
                     self.emit(self.engineEvents["engine.remove.stream"], { msg: `stream removed from engine ${reason ? ("reason:" + reason) : ""}`, stream })
-                    self._debug(`stream [ID=${stream.streamID}] removed from engine ${reason ? ("reason:" + reason) : ""}`)
+                    self._debugLog(`stream [ID=${stream.streamID}] removed from engine ${reason ? ("reason:" + reason) : ""}`)
                 } catch (e: any) {
-                    self._debug(`stream [id=${stream.streamID}] remove from engine failed`, e)
+                    self._debugLog(`stream [id=${stream.streamID}] remove from engine failed`, e)
                     self.emit(self.engineEvents["engine.error.stream"], { msg: `stream remove from engine failed: ${e.message}`, stream })
                 }
             }
@@ -677,6 +701,8 @@ class Engine extends EngineProcessAPI {
     }
 
     private _writeToEngineConfigFilePath() {
+        let self = this
+        self._trace(`_writeToEngineConfigFilePath called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         try {
             fs.writeFileSync(this._engineConfigFilePath, JSON.stringify(this._engineConfig))
         } catch (err) {
@@ -702,8 +728,8 @@ interface EngineConfig {
     logger: {
         level: "FATAL" | "ERROR" | "WARN" | "INFO" | "DEBUG" | "TRACE" | "OFF" | "ALL" | "NONE"
         format: "json" | "logfmt"
-        add_timestamp: boolean
-        static_fields: {
+        add_timestamp?: boolean
+        static_fields?: {
             "@pwrdby": "exthos"
         }
     }

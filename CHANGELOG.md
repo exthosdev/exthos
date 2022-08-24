@@ -9,11 +9,14 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-## v1.0.7 
+## v1.0.7 - v1.0.8
 
 ### Added
 
 - included the first working test with jest
+- debugging within engine enhanced
+- jest test fixes
+- more tests
 
 ## v1.0.6 
 

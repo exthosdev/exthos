@@ -263,7 +263,7 @@ class Engine extends EngineProcessAPI {
                             let resp = await axios.get(benthosURL, { responseType: 'stream' })
                             await streamPromises.pipeline(resp.data, fs.createWriteStream(benthosArchiveFullPath))
                             self._debugLog(`extracting archive ${benthosArchiveFullPath}`)
-                            execaCommandSync(`tar xzvf ${benthosArchiveFullPath} benthos -C ${benthosDir}`)
+                            execaCommandSync(`tar xzvf ${benthosArchiveFullPath} -C ${benthosDir} benthos`)
                             execaCommandSync(`mv ${path.join(benthosDir, "benthos")} ${path.join(benthosDir, benthosFileName)}`)
                             fs.chmodSync(self.#benthosEXEFullPath, "0777")
                             self._debugLog(`benthos installation completed`)

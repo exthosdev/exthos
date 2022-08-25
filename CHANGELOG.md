@@ -3,6 +3,9 @@ Changelog
 
 All notable changes to this project will be documented in this file.
 
+## v1.0.10
+- fix: tar into /tmp folder to fix github tests
+
 ## v1.0.9 
 - feat: benthos exe is downloaded if not present
 

@@ -1,7 +1,7 @@
 {
   "name": "exthos",
   "type": "module",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "stream processing in nodejs using the power of golang",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

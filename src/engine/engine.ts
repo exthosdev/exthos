@@ -2,14 +2,15 @@ import * as path from "path";
 import { tmpdir } from "os";
 import * as fs from "fs";
 import { randomUUID } from 'crypto';
-import { checkExeExists, Deferred, sleep } from '../utils/utils.js';
-import { execaCommand, ExecaChildProcess } from 'execa';
+import { Deferred, sleep } from '../utils/utils.js';
+import { execaCommand, ExecaChildProcess, execaCommandSync } from 'execa';
 import * as net from "net";
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import { Stream } from "../stream/stream.js";
 import debug from "debug";
 import * as stream from "stream";
+import { promises as streamPromises } from "stream";
 import { EngineProcessAPI } from "./engineProcessAPI.js";
 import { once } from "events"; // TODO: remove and eventemitter2.once?
 import { Mutex } from 'async-mutex';
@@ -103,6 +104,8 @@ class Engine extends EngineProcessAPI {
     private _scheme: "http" | "https" = "http"
     private _tempLocalServer!: net.Server     // used to verify the IP and Port
     private _streamsMap: { [key: string]: Stream } = {}
+
+    #benthosEXEFullPath: string = "/tmp"
 
     public engineEvents = engineEventsEnums
 
@@ -236,7 +239,42 @@ class Engine extends EngineProcessAPI {
                 if (this._isLocal) {
                     self._debugLog("isLocal=true")
                     /**
-                     * tempLocalServer check
+                     * CHECK #1 checkExeExists
+                     */
+                    // TODO: these must come from the config
+                    let benthosTag = "v4.5.1"
+                    let benthosVersion = "4.5.1"
+                    let benthosOS = "linux"
+                    let benthosArch = "amd64"
+                    let benthosArm = ""
+                    let benthosFileName = `benthos_${benthosVersion}_${benthosOS}_${benthosArch}${benthosArm}` // get this one from config as well if present
+                    let benthosDir = "/tmp" // TODO: these must come from the config
+                    self.#benthosEXEFullPath = path.join(benthosDir, benthosFileName)
+                    let benthosArchiveFullPath = path.join(benthosDir, benthosFileName + ".tar.gz")
+
+                    try {
+                        fs.statSync(self.#benthosEXEFullPath)
+                        self._debugLog(`${self.#benthosEXEFullPath} exists. will be using it.`)
+                    } catch (e) {
+                        try {
+                            let benthosURL = `https://github.com/benthosdev/benthos/releases/download/${benthosTag}/${benthosFileName + ".tar.gz"}`
+                            self._debugLog(`${self.#benthosEXEFullPath} doesnt exist`)
+                            self._debugLog(`downloading archive from: ${benthosURL}`)
+                            let resp = await axios.get(benthosURL, { responseType: 'stream' })
+                            await streamPromises.pipeline(resp.data, fs.createWriteStream(benthosArchiveFullPath))
+                            self._debugLog(`extracting archive ${benthosArchiveFullPath}`)
+                            execaCommandSync(`tar xzvf ${benthosArchiveFullPath} benthos -C ${benthosDir}`)
+                            execaCommandSync(`mv ${path.join(benthosDir, "benthos")} ${path.join(benthosDir, benthosFileName)}`)
+                            fs.chmodSync(self.#benthosEXEFullPath, "0777")
+                            self._debugLog(`benthos installation completed`)
+                        } catch (e: any) {
+                            let msg = "benthos cannot be downloaded: " + e.message
+                            self.emit(self.engineEvents["engine.fatal"], { msg }) // TODO: change to error along with the 3
+                            return self
+                        }
+                    }
+                    /**
+                     * CHECK #2 tempLocalServer check
                      */
                     try {
 
@@ -299,16 +337,8 @@ class Engine extends EngineProcessAPI {
                         return self
                     }
 
-                    /**
-                     * checkExeExists
-                     */
-                    if (!checkExeExists()) {
-                        let msg = "benthos executable not found. Kindly install benthos and add it to env path."
-                        self.emit(self.engineEvents["engine.fatal"], { msg }) // TODO: change to error along with the 3
-                        return self
-                    }
-
-                    self._engineProcess = execaCommand(`benthos -c ${self._engineConfigFilePath} streams`, {
+                    // self._engineProcess = execaCommand(`benthos -c ${self._engineConfigFilePath} streams`, {
+                    self._engineProcess = execaCommand(`${self.#benthosEXEFullPath} -c ${self._engineConfigFilePath} streams`, {
                         signal: self._abortController.signal,
                         buffer: false,
                         detached: true  // so that SIGINT on parent doesnt not reach the child as well. detached => child is a diff process group

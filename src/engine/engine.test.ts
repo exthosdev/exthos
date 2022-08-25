@@ -18,7 +18,7 @@ describe("engine start stop", () => {
         expect.assertions(2)
         await expect(engine.start()).resolves.not.toThrow()
         await expect(engine.stop()).resolves.not.toThrow()
-    })
+    }, 5 * 60 * 1000) // since its the first test, give it reasonable time to download exe if required
 
     test("stop engine that hasnt started", async () => {
         expect.assertions(1)

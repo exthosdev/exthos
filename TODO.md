@@ -1,5 +1,6 @@
 
 Todo:
+- work on exthos.config.js
 - implement stopAfter hlapi (see README)
 - take a look at defaults. are they even working? see sanitized stream config debug output
 - remove log_level.js

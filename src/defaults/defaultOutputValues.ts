@@ -78,7 +78,7 @@ const defaultOutputValues: TOutput = { //TOutputStdout | TOutputFile | TOutputHt
         },
         multipart: []
     },
-    
+
     azure_blob_storage: {
         storage_account: "",
         storage_access_key: "",
@@ -101,9 +101,17 @@ const defaultOutputValues: TOutput = { //TOutputStdout | TOutputFile | TOutputHt
             period: "",
             check: "",
             processors: []
-        }   
+        }
     },
 
-    inproc: ""
+    inproc: "",
+
+    nanomsg: {
+        urls: [],
+        bind: false,
+        socket_type: "PUSH",
+        poll_timeout: "5s",
+        max_in_flight: 64
+    }
 }
 export { defaultOutputValues }

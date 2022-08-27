@@ -48,10 +48,18 @@ const defaultInputValues: TInput = {//TInputGenerate | TInputStdin | TInputFile 
             period: "",
             check: "",
             processors: []
-        }   
+        }
     },
 
-    inproc: ""
+    inproc: "",
+
+    nanomsg: {
+        urls: [],
+        bind: true,
+        socket_type: "PULL",
+        sub_filters: [],
+        poll_timeout: "5s"
+    }
 }
 
 export { defaultInputValues }

@@ -86,6 +86,22 @@ type TInputDirect = {
     direct: string
 }
 
-type TInput = (TInputGenerate | TInputStdin | TInputFile | TInputInPort | TInputRedisStreams | TInputBroker | TInputInproc | TInputDirect) & { processors?: TProcessor[] }
+type TInputNanomsg = {
+    label?: ""
+    nanomsg: {
+        urls: string[]
+        bind: boolean
+        socket_type: "PULL" | "SUB"
+        sub_filters: string[]
+        poll_timeout: string
+    }
+}
+
+type TInput = (
+    TInputGenerate | TInputStdin | TInputFile | TInputInPort | 
+    TInputRedisStreams | TInputBroker | TInputInproc | TInputDirect |
+    TInputNanomsg
+    ) & 
+    { processors?: TProcessor[] }
 
 export { TInput, TInputBroker }

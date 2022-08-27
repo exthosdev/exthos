@@ -268,7 +268,7 @@ class Engine extends EngineProcessAPI {
                             fs.chmodSync(self.#benthosEXEFullPath, "0777")
                             self._debugLog(`benthos installation completed`)
                         } catch (e: any) {
-                            let msg = "benthos cannot be downloaded: " + e.message
+                            let msg = "benthos cannot be installed: " + e.message
                             self.emit(self.engineEvents["engine.fatal"], { msg }) // TODO: change to error along with the 3
                             return self
                         }
@@ -717,6 +717,13 @@ class Engine extends EngineProcessAPI {
                         continue;
                     }
                     await self._apiDeleteStream(stream)
+                    // if hasOutProc close it, to clean the sock
+                    if (stream.hasOutPort) {
+                        stream.outPort.close()
+                    }
+                    if (stream.hasInPort) {
+                        stream.inPort.close()
+                    }
                     delete self._streamsMap[stream.streamID]
                     self.emit(self.engineEvents["engine.remove.stream"], { msg: `stream removed from engine ${reason ? ("reason:" + reason) : ""}`, stream })
                     self._debugLog(`stream [ID=${stream.streamID}] removed from engine ${reason ? ("reason:" + reason) : ""}`)
@@ -738,6 +745,11 @@ class Engine extends EngineProcessAPI {
         } catch (err) {
             throw new Error(`failed to write config into tmp: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
         }
+    }
+
+    public useDefaultEventHandler() {
+        let self = this
+        self.onAny(defaultEngineEventHandler.bind(self))
     }
 }
 
@@ -830,6 +842,31 @@ let defaultEngineConfig: EngineConfig = {
         none: {}
     },
     "shutdown_timeout": "20s"
+}
+
+let streamErrorCounter: { [streamID: string]: any } = {} // streamID to count
+
+function defaultEngineEventHandler(this: Engine, eventName: string | string[], eventObj: EventObj) {
+    let self = this
+    if (eventName === "engine.fatal") {
+        throw new Error(((eventObj)["msg"] || "engine.fatal occured, but msg was absent in the eventObj.msg") + ". engine will be stopped if was started.");
+    } else if (eventName === "engine.stream.error") {
+        let streamID: string
+        if (eventObj.stream && eventObj.stream.streamID) {
+            streamID = eventObj.stream.streamID
+        } else {
+            streamID = "unknown"
+        }
+        console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+        streamErrorCounter[streamID] = streamErrorCounter[streamID] || 0
+        streamErrorCounter[streamID] = streamErrorCounter[streamID] + 1
+        if (streamErrorCounter[streamID] === 5 && eventObj.stream) {
+            // remove the stream if error received 5 times
+            self.remove(eventObj.stream)
+        }
+    } else {
+        console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+    }
 }
 
 export { Engine }

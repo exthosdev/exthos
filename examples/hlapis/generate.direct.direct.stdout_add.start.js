@@ -1,5 +1,6 @@
-import { from, engine, defaultEngineEventHandler } from "../../dist/index.js"
-engine.onAny(defaultEngineEventHandler)
+import { from, engine } from "../../dist/index.js"
+
+engine.useDefaultEventHandler()
 
 let route = from({ generate: { mapping: 'root = count("gen")' } }).to({ direct: "r1" })
 let route1 = from({ direct: "r1" }).to({ stdout: {} }).start()

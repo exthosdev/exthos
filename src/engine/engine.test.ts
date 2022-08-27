@@ -9,7 +9,6 @@ describe("engine start stop", () => {
     engine.onAny((eventName: string | string[], eventObj: {stream: Stream}) => {
         if (eventName === "engine.fatal") {
             throw new Error((eventObj as any)["msg"] || "engine.fatal occured, but msg was absent in the eventObj.msg");
-            
         }
     })
     engine.setEngineOptions({ logger: { level: "NONE", format: "json", } })

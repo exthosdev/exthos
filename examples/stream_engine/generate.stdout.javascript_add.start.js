@@ -1,10 +1,7 @@
-import exthos from "../../dist/index.js";
-import defaultEngineEventHandler from "./defaultEngineEventHandler.js"
+import * as exthos from "../../dist/index.js";
 
 let engine = new exthos.Engine({ metrics: { json_api: {} } }, { isLocal: process.env["isLocal"] ? process.env["isLocal"] === "true" : true })
-engine.onAny(defaultEngineEventHandler.bind(engine))
-// engine.on("engine.stream.info", (e) => { defaultEngineEventHandler.call(engine, "engine.stream.info", e) })
-// engine.on("engine.stream.error", (e) => { defaultEngineEventHandler.call(engine, "engine.stream.error", e) })
+engine.useDefaultEventHandler()
 
 let stream1 = new exthos.Stream({
     input: {

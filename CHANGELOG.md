@@ -3,6 +3,13 @@ Changelog
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.0
+  - feat+fix: inport and outport now use nanomsg on unix socket. #4
+  - fix: all examples. #3
+  - feat: moved defaulteventhandler inside engine. engine now exposes a `useDefaultEventHandler` method
+  - o: removed log_level
+  - o: worked on README.md #1
+
 ## v1.0.10
 - fix: tar into /tmp folder to fix github tests
 

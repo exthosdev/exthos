@@ -1,6 +1,7 @@
-import exthos from "../../src/index.js"; // exthos;
+import * as exthos from "../../dist/index.js";
+
 let stream = new exthos.Stream({
-    input: { generate: { mapping: `root = "you nailed it"` } },
+    input: { generate: { mapping: `root = "you nailed it"`, count: 2 } },
     pipeline: {
         processors: [{ noop: {} }]
     },

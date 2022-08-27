@@ -1,8 +1,7 @@
-import exthos from "../../dist/index.js";
-import defaultEngineEventHandler from "./defaultEngineEventHandler.js"
+import * as exthos from "../../dist/index.js";
 
 let engine = new exthos.Engine({})
-engine.onAny(defaultEngineEventHandler.bind(engine))
+engine.useDefaultEventHandler()
 
 let stream1 = new exthos.Stream({ input: { generate: { mapping: 'root = "world"' } }, output: { stdout: {} } })
 engine.add(stream1)

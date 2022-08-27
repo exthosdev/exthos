@@ -1,8 +1,8 @@
-import exthos from "../../../dist/index.js";
-import defaultEngineEventHandler from "../defaultEngineEventHandler.js"
+import * as exthos from "../../../dist/index.js";
 
 let engine = new exthos.Engine({}, {debugNamespace: "exthos:engineProcess:info*"})
-engine.onAny(defaultEngineEventHandler.bind(engine))
+engine.useDefaultEventHandler()
+
 engine.start()
 let msg = {
     payload: process.env

@@ -5,19 +5,19 @@ import * as path from "path";
 import { tmpdir } from "os";
 import * as fs from "fs";
 import { randomUUID } from 'crypto';
-import * as internal from 'stream';
 import * as utils from '../utils/utils.js';
 import { defaultProcessorValues } from '../defaults/defaultProcessorValues.js';
 import debug from "debug";
 import { TStreamConfig } from '../types/streamConfig.js';
+import * as nanomsg from "nanomsg";
 
 class Stream {
     readonly #streamConfigFilePath: string = path.join(tmpdir(), "exthos_stream_conf_" + randomUUID() + ".json")
     #streamConfig: TStreamConfig
     #childProcess!: ExecaChildProcess<string>
     #abortController = new AbortController();
-    #hasInPort: boolean = false
-    #hasOutPort: boolean = false
+    hasInPort: boolean = false
+    hasOutPort: boolean = false
     // #logger = {     // TODO: get rid of logger
     //     "trace": debug("trace:Engine"),
     //     "debug": debug("debug:Engine"),
@@ -26,8 +26,8 @@ class Stream {
     // }
     #debug = debug("exthos").extend("stream:debug")
     #status: "stopped" | "started" = "stopped"
-    #inPort!: internal.Writable
-    #outPort!: internal.Readable
+    #inPort!: nanomsg.Socket // internal.Writable
+    #outPort!: nanomsg.Socket // internal.Readable
 
     public readonly streamID: string = randomUUID()
     // public active uptime uptime_str TODO. these should be part of the stream
@@ -40,11 +40,11 @@ class Stream {
         this._sanitizeStreamConfigNWriteToStreamConfigFilePath()
     }
 
-    get inPort(): internal.Writable {
+    get inPort() {
         return this.#inPort
     }
 
-    get outPort(): internal.Readable {
+    get outPort() {
         return this.#outPort
     }
 
@@ -70,29 +70,28 @@ class Stream {
                 throw new Error("benthos executable not found. Kindly install benthos and add it to env path.");
             }
             if (this.#status !== "started") {
-                this.#childProcess = execaCommand(`benthos -s logger.format=json -s logger.static_fields.@service=exthos -s http.enabled=false -c ${this.#streamConfigFilePath}`, { signal: this.#abortController.signal });
+                this.#childProcess = execaCommand(`benthos -s logger.format=json -s logger.static_fields.@service=exthos -s http.enabled=false -c ${this.#streamConfigFilePath}`,
+                    {
+                        signal: this.#abortController.signal,
+                        buffer: false,
+                        detached: true
+                    }
+                );
 
                 this.#childProcess.on("spawn", () => {
                     this.#debug("stream started successfuly")
                     this.#status = "started"
                 })
 
+                process.on('SIGINT', () => { this.stop() });
                 process.stdin.pipe(this.#childProcess.stdin!)
                 this.#childProcess.stdout?.pipe(process.stdout)
                 this.#childProcess.stderr?.pipe(process.stderr)
 
-                // TODO: move the below to _sanitizeStreamConfigNWriteToStreamConfigFilePath so engine can also use in/outPorts
-                if (this.#hasOutPort) {
-                    this.#outPort = this.#childProcess.stdout!
-                }
-
-                if (this.#hasInPort) {
-                    this.#inPort = this.#childProcess.stdin!
-                }
-
                 await this.#childProcess
 
-                this.#status = "stopped"
+                this.stop() // for cleanup
+                // this.#status = "stopped"
                 this.#debug("stream stopped (completed) successfully")
             }
         } catch (err: any) {
@@ -111,6 +110,13 @@ class Stream {
     stop() {
         if (this.#status !== "stopped") {
             this.#abortController.abort()
+            // if hasOutProc close it, to clean the sock
+            if (this.hasOutPort) {
+                this.outPort.close()
+            }
+            if (this.hasInPort) {
+                this.inPort.close()
+            }
             this.#status = "stopped"
         }
     }
@@ -210,12 +216,40 @@ class Stream {
             }
         }))
 
+        // if outport exists, assign a unix socket for ips to the value for outport
+        utils.replaceValuesForKeys(this.#streamConfig, {
+            "outport": {
+                urls: [`ipc:///tmp/${self.streamID}.outport.sock`]
+            },
+            "inport": {
+                urls: [`ipc:///tmp/${self.streamID}.inport.sock`],
+                bind: false
+            }
+        })
+
         // covert inport to stdin and allow write and end
         // convert outport into stdout and allow read
         // covert direct to inproc
         utils.replaceKeys(this.#streamConfig, {
-            "inport": () => { self.#hasInPort = true; return "stdin" },
-            "outport": () => { self.#hasOutPort = true; return "stdout" },
+            "inport": () => { 
+                self.hasInPort = true; 
+                if (!this.#inPort) {
+                    // create inPort if not already created
+                    this.#inPort = nanomsg.socket('push')
+                    this.#inPort.bind(`ipc:///tmp/${self.streamID}.inport.sock`)
+                }
+                return "nanomsg" 
+            },
+            "outport": () => {
+                self.hasOutPort = true;
+                if (!this.#outPort) {
+                    // create outPort if not already created
+                    this.#outPort = nanomsg.socket('pull')
+                    this.#outPort.bind(`ipc:///tmp/${self.streamID}.outport.sock`)
+                }
+                return "nanomsg"
+                // return "stdout"
+            },
             "direct": () => { return "inproc" }
         })
 

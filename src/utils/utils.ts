@@ -89,4 +89,37 @@ function replaceKeys(obj: any, keyMap: { [oldKey: string]: () => string }) {
     return obj
 }
 
-export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys }
+/**
+  * iterates through the entire object to remove existing values and replace values provided in the kv object
+ * CAUTION: it mutates the object itself
+ * CAUTION: completely removes existing value for the given k
+ * @param obj 
+ * @param kv 
+ * @returns 
+ */
+function replaceValuesForKeys(obj: any, kv: { [forKey: string]: any }) {
+    let iterate = (obj: any) => {
+        Object.keys(obj).forEach(key => {
+            if (Object.keys(kv).includes(key)) {
+                obj[key] = kv[key]
+                // let oldKey = key
+                // let newKey = keyMap[oldKey]
+                // Object.defineProperty(obj, newKey(), Object.getOwnPropertyDescriptor(obj, oldKey)!);
+                // delete (obj as any)[oldKey];
+                return obj
+            } else {
+                if (typeof obj[key] === 'object' && obj[key] !== null) {
+                    iterate(obj[key])
+                } else if (Array.isArray(obj[key])) {
+                    obj[key].forEach((el: any) => {
+                        iterate(el)
+                    })
+                }
+            }
+        })
+    }
+    iterate(obj)
+    return obj
+}
+
+export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValuesForKeys }

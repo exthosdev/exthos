@@ -1,8 +1,7 @@
-import exthos from "../../../dist/index.js";
-import defaultEngineEventHandler from "../defaultEngineEventHandler.js"
+import * as exthos from "../../../dist/index.js";
 
 let engine = new exthos.Engine({})
-engine.onAny(defaultEngineEventHandler.bind(engine))
+engine.useDefaultEventHandler()
 
 let streams = []
 process.env.REDIS_STREAMS.split(",").forEach(streamName => {
@@ -43,21 +42,6 @@ process.env.REDIS_STREAMS.split(",").forEach(streamName => {
             ]
         },
         output: {
-            // http_client: {
-            //     verb: "POST",
-            //     url: '${! env("STREAMING_DATASET_URL")}',
-            //     batching: {
-            //         byte_size: 0.5 * 1024 * 1024, // 0.5MB
-            //         period: "1s",
-            //         processors: [
-            //             {
-            //                 archive: {
-            //                     format: "json_array"
-            //                 }
-            //             }
-            //         ]
-            //     }
-            // }
             stdout: {}
         }
     

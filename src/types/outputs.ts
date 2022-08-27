@@ -130,10 +130,21 @@ type TOutputInproc = {
 }
 
 type TOutputDirect = {
-    label?: ""
+    label?: string
     direct: string
 }
 
-type TOutput = (TOutputFile | TOutputStdout | TOutputOutport | TOutputHttpClient | TOutputAzureBlobStorage | TOutputBroker | TOutputInproc | TOutputDirect) & { processors?: TProcessor[] }
+type TOutputNanomsg = {
+    label?: string
+    nanomsg: {
+      urls: string[]
+      bind: boolean
+      socket_type: "PUSH" | "PUB"
+      poll_timeout: string
+      max_in_flight: number
+    }
+}
+
+type TOutput = (TOutputFile | TOutputStdout | TOutputOutport | TOutputHttpClient | TOutputAzureBlobStorage | TOutputBroker | TOutputInproc | TOutputDirect | TOutputNanomsg) & { processors?: TProcessor[] }
 
 export { TOutput, TOutputBroker }

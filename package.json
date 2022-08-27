@@ -9,7 +9,7 @@
     "cleanit": "rm -rf dist",
     "buildit": "tsc",
     "buildwit": "tsc -w",
-    "testit": "npm run buildit && node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests --runInBand --silent=false",    
+    "testit": "npm run buildit && node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests --runInBand --silent=false",
     "publishit": "npm publish",
     "dogit": "git add . && git commit -F .commitmsg.md && git push",
     "packit": "npm pack --pack-destination ./_tars"
@@ -26,6 +26,7 @@
   "devDependencies": {
     "@types/debug": "^4.1.7",
     "@types/jest": "^28.1.3",
+    "@types/nanomsg": "^4.2.0",
     "@types/node": "^18.7.13",
     "jest": "^28.1.1",
     "ts-jest": "^28.0.5",
@@ -38,6 +39,7 @@
     "debug": "^4.3.4",
     "dotenv": "^16.0.1",
     "eventemitter2": "^6.4.6",
-    "execa": "^6.1.0"
+    "execa": "^6.1.0",
+    "nanomsg": "^4.2.1"
   }
 }

@@ -1,8 +1,9 @@
-import { from, engine, defaultEngineEventHandler } from "../../dist/index.js"
-engine.onAny(defaultEngineEventHandler)
+import { from, engine } from "../../dist/index.js"
+
+engine.useDefaultEventHandler()
 engine.setEngineOptions({logger:{level: "ALL", format: "json"}})
 
-let route = from({ generate: { mapping: 'root = count("gen")' } }).batchAtInput({ count: 2 }).batchAtOutput({ count: 6 }).to({ stdout: {} }) //
+let route = from({ generate: { mapping: 'root = count("gen")', count: 6 } }).batchAtInput({ count: 2 }).batchAtOutput({ count: 6 }).to({ stdout: {} })
 
 route.start()
 

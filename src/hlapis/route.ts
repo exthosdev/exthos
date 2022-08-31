@@ -2,15 +2,22 @@ import { Engine } from "../engine/engine.js"
 import { Stream } from "../stream/stream.js"
 import { TInput, TInputBroker } from "../types/inputs.js"
 import { TOutput, TOutputBroker } from "../types/outputs.js"
+import { TProcessor } from "../types/processors.js"
 import { TStreamConfig } from "../types/streamConfig.js"
 import { proxyPromise } from "../utils/utils.js"
 
 type Batching = Omit<Required<TInputBroker["broker"]>["batching"], "processors">
+type RouteProxymisedMethods<A extends any[], T extends keyof Route> = (...a: A) => Pick<Route, T> & {
+    then: (value: (rt: Pick<Route, T>) => void) => { catch: (value: (e: Error) => void) => { finally: (value: () => void) => void } }
+        & { finally: (value: () => void) => void }
+    ,
+    catch: (value: (e: Error) => void) => { finally: (value: () => void) => void }
+}
 
 let from = proxyPromise(async function (engine: Engine, ...inputs: [TInput, ...TInput[]]) {
     let r = new Route(engine, ...inputs)
 
-    return r as Pick<Route, "to" | "batchInput">
+    return r as Pick<Route, "to" | "batchInput" | "_via">
     // return {
     //     batch: r.batchAtInput.bind(r),
     //     //via: TODO
@@ -31,6 +38,7 @@ class Route {
     }
     #engine: Engine
     #stream!: Stream
+    #processors: TProcessor[] = []
 
     constructor(engine: Engine, ...inputs: [TInput, ...TInput[]]) {
         this.#engine = engine
@@ -46,7 +54,7 @@ class Route {
         //     batch: self.batchAtOutput.bind(self),
         //     to: self.to.bind(self),
         // }
-        return self as Pick<Route, "to" | "batchOutput">
+        return self as Pick<Route, "to" | "batchOutput" | "_via">
     })
 
     batchOutput = proxyPromise(async function (this: Route, batching: Batching) {
@@ -58,7 +66,7 @@ class Route {
         return self as Pick<Route, "to">
     })
 
-    to = proxyPromise(async function (this: Route, ...outputs: [TOutput, ...TOutput[]]) {
+    to: RouteProxymisedMethods<[TOutput, ...TOutput[]], "start" | "startAfter" | "stop" | "stopAfter"> = proxyPromise(async function (this: Route, ...outputs: [TOutput, ...TOutput[]]) {
         let self = this
         self.#outputBroker.broker.outputs = outputs
         // return {
@@ -66,31 +74,34 @@ class Route {
         //     stop: self.stop.bind(self),
         //     stopAfter: self.stopAfter.bind(self)
         // }
-        return self as Pick<Route, "start" | "stop" | "stopAfter">
+        return self as Pick<Route, "start" | "startAfter" | "stop" | "stopAfter">
     })
 
-    // start: () => Pick<Route, "stop" | "stopAfter"> = proxyPromise(async function (this: Route) {
+    _via: RouteProxymisedMethods<[TProcessor, ...TProcessor[]], "to" | "batchOutput" | "_via"> = proxyPromise(async function (this: Route, ...processors: [TProcessor, ...TProcessor[]]) {
+        let self = this
+        self.#processors.push(...processors)
+        return self as Pick<Route, "to" | "batchOutput" | "_via">
+    })
 
-    start: () => Pick<Route, "stop" | "stopAfter"> & {
-        then: (value: (rt: Pick<Route, "stop" | "stopAfter">) => void) => { catch: (value: (e: Error) => void) => { finally: (value: () => void) => void } }
-            & { finally: (value: () => void) => void }
-        ,
-        catch: (value: (e: Error) => void) => { finally: (value: () => void) => void }
-    } = proxyPromise(async function (this: Route) {
+
+    // start: () => Pick<Route, "stop" | "stopAfter"> & {
+    //     then: (value: (rt: Pick<Route, "stop" | "stopAfter">) => void) => { catch: (value: (e: Error) => void) => { finally: (value: () => void) => void } }
+    //         & { finally: (value: () => void) => void }
+    //     ,
+    //     catch: (value: (e: Error) => void) => { finally: (value: () => void) => void }
+    // } 
+
+    start: RouteProxymisedMethods<[], "stop" | "stopAfter"> = proxyPromise(async function (this: Route) {
         // add the stream to the engine
         let self = this
         self.#stream = self.#stream || new Stream(self.#toStreamConfig())
         await self.#engine.start()
         await self.#engine.add(self.#stream)
 
-        // return {
-        //     stop: self.stop.bind(self),
-        //     stopAfter: self.stopAfter.bind(self)
-        // }
         return self as Pick<Route, "stop" | "stopAfter">
     })
 
-    startAfter = proxyPromise(async function (this: Route, ms: number) {
+    startAfter: RouteProxymisedMethods<[number], "stop" | "stopAfter"> = proxyPromise(async function (this: Route, ms: number) {
         let self = this
         await new Promise((r: any) => { setTimeout(r, ms); })
         self.#stream = self.#stream || new Stream(self.#toStreamConfig())
@@ -99,26 +110,26 @@ class Route {
         return self as Pick<Route, "stop" | "stopAfter">
     })
 
-    stop = proxyPromise(async function (this: Route) {
+    stop: RouteProxymisedMethods<[], "start" | "startAfter"> = proxyPromise(async function (this: Route) {
         let self = this
         await self.#engine.remove.bind(self.#engine)(self.#stream)
-        return self as Pick<Route, "start">
+        return self as Pick<Route, "start" | "startAfter">
     })
 
-    stopAfter = proxyPromise(async function (this: Route, ms: number) {
+    stopAfter: RouteProxymisedMethods<[number], "start" | "startAfter"> = proxyPromise(async function (this: Route, ms: number) {
         let self = this
         await new Promise((r: any) => { setTimeout(r, ms); })
-        await self.stop() // .bind(self)
-        return self as Pick<Route, "start">
+        await self.stop()
+        return self as Pick<Route, "start" | "startAfter">
     })
 
     #toStreamConfig(): TStreamConfig {
         let self = this
         return {
             input: self.#inputBroker,
-            // pipeline: {
-            //     processors: self.via.processors
-            // },
+            pipeline: {
+                processors: self.#processors
+            },
             output: self.#outputBroker
         }
     }

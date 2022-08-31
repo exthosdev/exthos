@@ -91,9 +91,10 @@ class Engine extends EngineProcessAPI {
      * exthos:engine:trace - prints trace information showing flow of code
      */
     private _debug = debug("exthos").extend("engine")
-    private _debugLog = this._debug.extend("log")
-    private _traceLog = this._debug.extend("trace")    // used to print trace lines e.g. line numbers
-    private _eventLog = this._debug.extend("event")    // used to print trace lines e.g. line numbers
+    private _debugLog = this._debug.extend("debugLog")
+    private _traceLog = this._debug.extend("traceLog")    // used to print trace lines e.g. line numbers
+    private _eventLog = this._debug.extend("eventLog")    // used to print trace lines e.g. line numbers
+    private _eventNameToEventLog: Partial<Record<engineEventsTypes, debug.Debugger>> = {}   // used to set the debug extend only once per eventName
 
     private _isActive: boolean = false                              // engine uses the /ping api to change this state
     private _engineInitStartStopMutex = new Mutex()
@@ -112,7 +113,13 @@ class Engine extends EngineProcessAPI {
     // override emit to allow only engineEventsTypes
     public emit: (event: engineEventsTypes, eventObj: EventObj, ...values: any[]) => boolean =
         (event: engineEventsTypes, eventObj: EventObj, ...values: any[]) => {
-            this._eventLog(event, JSON.stringify(eventObj))
+            let self = this
+            if (!self._eventNameToEventLog[event]) {
+                self._eventNameToEventLog[event] = self._eventLog.extend(event)
+            }
+            self._eventNameToEventLog[event]!(JSON.stringify(eventObj))
+
+            // self._eventLog(JSON.stringify({ eventName: event, eventObj }))
             return super.emit(event as string, eventObj, ...values)
         }
 
@@ -124,9 +131,9 @@ class Engine extends EngineProcessAPI {
         }
     }
 
-    setEngineOptions(engineConfig?: Partial<EngineConfig>, engineOpts?: { isLocal?: boolean, debugNamespace?: string }) {
+    setEngineConfigOptions(engineConfig?: Partial<EngineConfig>, engineOpts?: { isLocal?: boolean, debugNamespace?: string }) {
         let self = this
-        self._debugLog(`setEngineOptions called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        self._debugLog(`setEngineConfigOptions called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         // take care of engineOpts
         if (engineOpts === undefined) {
             engineOpts = {}
@@ -182,7 +189,7 @@ class Engine extends EngineProcessAPI {
 
         self._engineInitStartStopMutex.runExclusive(() => {
 
-            this.setEngineOptions(engineConfig, engineOpts)
+            this.setEngineConfigOptions(engineConfig, engineOpts)
             let self = this
 
             // engine.active/inactive to mutate the isActive on the engine        
@@ -201,24 +208,6 @@ class Engine extends EngineProcessAPI {
                 self.stop(eventObj.msg)
             })
         })
-        // super()
-        // this.setEngineOptions(engineConfig, engineOpts)
-
-
-        // // engine.active/inactive to mutate the isActive on the engine        
-        // self.on(self.engineEvents["engine.active"], () => {
-        //     self._isActive = true
-        // })
-        // self.on(self.engineEvents["engine.inactive"], () => {
-        //     self._isActive = false
-        // })
-        // self.on(self.engineEvents["engine.stream.fatal"], (eventObj: EventObj) => {
-        //     self._removeProm(eventObj.msg, eventObj.stream)
-        // })
-        // self.on(self.engineEvents["engine.fatal"], (eventObj: EventObj) => {
-        //     self.stop(eventObj.msg)
-        // })
-
     }
 
     /**

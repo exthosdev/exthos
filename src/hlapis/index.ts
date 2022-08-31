@@ -7,3 +7,10 @@ let from = (...inputs: [TInput, ...TInput[]]) => {
 }
 let engine = new Engine()
 export { from, engine }
+
+// quick testing
+// let route = from({ generate: { mapping: 'root = count("gen")', count: 1 } })
+//     ._via({ log: { message: "log#1" } })
+//     ._via({ log: { message: "log#2" } })
+//     .to({ stdout: {} })
+// route.start().stop()

@@ -1,7 +1,7 @@
 import { from, engine } from "../../dist/index.js"
 
 engine.useDefaultEventHandler()
-engine.setEngineOptions({ logger: { level: "ALL", format: "json" } })
+engine.setEngineConfigOptions({ logger: { level: "ALL", format: "json" } })
 
 /**
  * Either one of the following

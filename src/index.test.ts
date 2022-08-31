@@ -11,7 +11,7 @@ describe('test group description', () => {
 
             }
         })
-        exthos.engine.setEngineOptions({ logger: { level: "NONE", format: "json", } })
+        exthos.engine.setEngineConfigOptions({ logger: { level: "NONE", format: "json", } })
     });
 
     test('engine start and stop from src/index.js', async () => {          // note the async keyword here

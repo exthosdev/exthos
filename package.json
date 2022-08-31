@@ -24,7 +24,7 @@
     "bumpmajor": "npm version --no-git-tag-version major",
     "bumpminor": "npm version --no-git-tag-version minor",
     "bumppatch": "npm version --no-git-tag-version patch",
-    "sitebuildit": "typedoc src/",
+    "sitebuildit": "typedoc src/ --media ./media",
     "siteserveit": "http-server ./docs"
   },
   "keywords": [

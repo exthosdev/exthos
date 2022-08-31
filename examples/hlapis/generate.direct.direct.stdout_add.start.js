@@ -10,9 +10,9 @@ route.start()
 
 setTimeout(() => {
     route.stop()
-}, 4000);
+}, 1000);
 
 setTimeout(() => {
     route1.stop()
     // route2.stop()
-}, 8000);
+}, 2000);

@@ -1,5 +1,6 @@
 import { execaCommandSync } from "execa"
 import axios from 'axios';
+import proxymise from "./proxymise.js";
 
 function checkExeExists(): boolean {
     try {
@@ -122,4 +123,33 @@ function replaceValuesForKeys(obj: any, kv: { [forKey: string]: any }) {
     return obj
 }
 
-export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValuesForKeys }
+/**
+ * use proxymise to build fluent proxies for promises
+ */
+function proxyPromise<T extends (...args: any) => any>(t: T) {
+    return proxymise(t) as ((...params: Parameters<T>) => Awaited<ReturnType<T>> &
+    {
+        then: (value: (rt: Awaited<ReturnType<T>>) => void) => { catch: (value: (e: Error) => void) => { finally: (value: () => void) => void } } & { finally: (value: () => void) => void },
+        catch: (value: (e: Error) => void) => { finally: (value: () => void) => void },
+    })
+}
+
+function getISOStringLocalTz(date: Date = new Date()) {
+    var tzo = -date.getTimezoneOffset(),
+        dif = tzo >= 0 ? '+' : '-',
+        pad = function (num: number) {
+            return (num < 10 ? '0' : '') + num;
+        };
+
+    return date.getFullYear() +
+        '-' + pad(date.getMonth() + 1) +
+        '-' + pad(date.getDate()) +
+        'T' + pad(date.getHours()) +
+        ':' + pad(date.getMinutes()) +
+        ':' + pad(date.getSeconds()) +
+        dif + pad(Math.floor(Math.abs(tzo) / 60)) +
+        ':' + pad(Math.abs(tzo) % 60);
+
+}
+
+export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValuesForKeys, proxyPromise, getISOStringLocalTz }

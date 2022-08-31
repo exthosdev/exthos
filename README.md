@@ -1,5 +1,7 @@
 > stream processing in nodejs using the power of golang
 
+Website: https://exthosdev.github.io/exthos/
+
 # Motivation
 **`exthos`** brings together `javascript` for its ubiquity and ease of use and `golang` for its high performance nature to solve *`stream processing problem`*.
 

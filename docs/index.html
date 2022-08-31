@@ -1,0 +1,162 @@
+<!DOCTYPE html><html class="default" lang="en"><head><meta charSet="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>exthos</title><meta name="description" content="Documentation for exthos"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script async src="assets/search.js" id="search-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os"</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container">
+<div class="table-cell" id="tsd-search" data-base=".">
+<div class="field"><label for="tsd-search-field" class="tsd-widget search no-caption"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15.7824 13.833L12.6666 10.7177C12.5259 10.5771 12.3353 10.499 12.1353 10.499H11.6259C12.4884 9.39596 13.001 8.00859 13.001 6.49937C13.001 2.90909 10.0914 0 6.50048 0C2.90959 0 0 2.90909 0 6.49937C0 10.0896 2.90959 12.9987 6.50048 12.9987C8.00996 12.9987 9.39756 12.4863 10.5008 11.6239V12.1332C10.5008 12.3332 10.5789 12.5238 10.7195 12.6644L13.8354 15.7797C14.1292 16.0734 14.6042 16.0734 14.8948 15.7797L15.7793 14.8954C16.0731 14.6017 16.0731 14.1267 15.7824 13.833ZM6.50048 10.499C4.29094 10.499 2.50018 8.71165 2.50018 6.49937C2.50018 4.29021 4.28781 2.49976 6.50048 2.49976C8.71001 2.49976 10.5008 4.28708 10.5008 6.49937C10.5008 8.70852 8.71314 10.499 6.50048 10.499Z" fill="var(--color-text)"></path></svg></label><input type="text" id="tsd-search-field" aria-label="Search"/></div>
+<ul class="results">
+<li class="state loading">Preparing search index...</li>
+<li class="state failure">The search index is not available</li></ul><a href="index.html" class="title">exthos</a></div>
+<div class="table-cell" id="tsd-widgets"><a href="#" class="tsd-widget menu no-caption" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="2" fill="var(--color-text)"></rect><rect x="1" y="7" width="14" height="2" fill="var(--color-text)"></rect><rect x="1" y="11" width="14" height="2" fill="var(--color-text)"></rect></svg></a></div></div></header>
+<div class="container container-main">
+<div class="col-8 col-content">
+<div class="tsd-page-title">
+<h2>exthos</h2></div>
+<div class="tsd-panel tsd-typography"><blockquote>
+<p>stream processing in nodejs using the power of golang</p>
+</blockquote>
+
+<a href="#motivation" id="motivation" style="color: inherit; text-decoration: none;">
+  <h1>Motivation</h1>
+</a>
+<p><strong><code>exthos</code></strong> brings together <code>javascript</code> for its ubiquity and ease of use and <code>golang</code> for its high performance nature to solve <em><code>stream processing problem</code></em>.</p>
+<p>javascript is the most common programming language (source: stackoverflow). The popularity seems to stem from the fact that is it both light weight and easy to integrate with other frameworks/languages. However, it is just not made for heavy compute, and stream processing often requires that. On the other hand, golang&#39;s speed, simplicity and memory efficiency pegs it as a great candidate for compute heavy workloads.</p>
+<p>exthos attempts to bring the two together to provide a streaming processing engine with intuitive APIs - heavily inspired by the Apache Camel project.</p>
+<p>Acknowledgement: exthos makes heavy use of benthos, which is an amazing stream processing package written in golang. While benthos promotes file based configuration, exthos promotes the use of Integration DSL within Javascript.</p>
+
+<a href="#how-exthos-works" id="how-exthos-works" style="color: inherit; text-decoration: none;">
+  <h1>How exthos works</h1>
+</a>
+<p>exthos has two set of APIs: </p>
+<ul>
+<li>the low level APIs and </li>
+<li>the high level APIs.</li>
+</ul>
+<p><strong>Users are encouraged to use the HL APIs</strong>, although an overview of the LL APIs help create a solid foundation. </p>
+
+<a href="#overview-low-level-apis" id="overview-low-level-apis" style="color: inherit; text-decoration: none;">
+  <h2>Overview: Low level APIs</h2>
+</a>
+<p>At the core of exthos is the <code>engine</code> that is responsible for running the <code>engineProcess</code>. The <code>engineProcess</code> is esentially a child process that runs benthos (in streams mode). 
+<code>streams</code> represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: <code>new Stream(...)</code>. During development, these streams can be run in standalone mode i.e. without an engine using: <code>stream.start()</code>. However, one must not run stream in standalone mode in production. The preferred way is to add stream objects into the engine instance at will using: <code>engine.add(stream)</code>. The streams can be updated or removed from the engine as well using: <code>engine.update(), engine.remove()</code>.</p>
+<p>The engine produces a <em>lot of events</em> that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using <code>engine.stream.error</code> event. </p>
+<ul>
+<li>You could provide your own event handling functions using any of the following: <code>engine.on(...)</code> or <code>engine.onAny(...)</code>. Refer to the documentation of the package named EventEmitter2 for details.</li>
+<li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler()</code></li>
+<li>Each event emits the <code>eventObj</code> that takes the form of <code>{ stream?: Stream, msg: string }</code> i.e. it always contains the <code>msg</code> string value and may contain the <code>stream</code> object if the event was generated in the context of a stream.</li>
+</ul>
+
+<a href="#overview-high-level-apis" id="overview-high-level-apis" style="color: inherit; text-decoration: none;">
+  <h2>Overview: High level APIs</h2>
+</a>
+<p>The high level APIs abstract a lot of complexity away from the user and enabling the users to focus on the integration/streaming problem. As mentioned before, HLAPIs are heavity inspired by Apache Camel&#39;s DSL, however it is important to note that there is no overlap or commonality between exthos and Camel.</p>
+<p>While using HLAPIs, the users create what we call a <code>route</code>. Internally, a route is akin to a LLAPI stream.
+A simple route would consist of an input and an output specified in a fluent API manner using <code>from</code> and <code>to</code> constructs. eg: <code>let route01 = from(...).to(...)</code></p>
+<p>Once a route is created, one can start it. Internally, exthos starts the engine if not running and adds the route to the engine. e.g. <code>route01.start()</code></p>
+<p>The route can subsequently be stopped using: <code>route01.stop()</code></p>
+
+<a href="#inputs" id="inputs" style="color: inherit; text-decoration: none;">
+  <h2>Inputs</h2>
+</a>
+<p><code>exthos</code> supports a number of inputs as sources of data. Take a look <a href="./src/types/inputs.ts">here</a>.</p>
+<p>Some specials inputs are:</p>
+<ul>
+<li><code>inport</code>: enables sending data from JS-land to goland-land</li>
+<li><code>direct</code>: acts as as alias and can be used to receive data from another <code>direct</code> output</li>
+</ul>
+
+<a href="#outputs" id="outputs" style="color: inherit; text-decoration: none;">
+  <h2>Outputs</h2>
+</a>
+<p><code>exthos</code> supports a number of outputs as destinations of data. Take a look <a href="./src/types/outputs.ts">here</a>.</p>
+<p>Some specials outputs are:</p>
+<ul>
+<li><code>outport</code>: enables receiving data from goland-land to JS-land</li>
+<li><code>direct</code>: acts as as alias and can be used to send data to another <code>direct</code> input</li>
+</ul>
+
+<a href="#processors" id="processors" style="color: inherit; text-decoration: none;">
+  <h2>Processors</h2>
+</a>
+<p><code>exthos</code> supports a number of processors. Procesors are used to act on a stream of data to perform operations such as lookup, filter, enrichment etc. Take a look <a href="./src/types/processors.ts">here</a>.</p>
+<p>Some specials processors are:</p>
+<ul>
+<li><code>javascript</code>: allows you to write javascript to manipulate <code>content</code> and <code>meta</code> of the messages</li>
+</ul>
+
+<a href="#messages" id="messages" style="color: inherit; text-decoration: none;">
+  <h2>Messages</h2>
+</a>
+<p><code>messages</code> are the events that are produced by sources, processed by processors and consumed by destinations.
+messages are always part of a <code>batch</code>. If unspcified, a batch contains a single message only. However, you can create batches of multiple messages and operate on them.
+Each message contains three parts:</p>
+<ul>
+<li><code>meta</code>: contains the metadata for the message as key value pairs </li>
+<li><code>content</code>: contains the actual data you may be intereted it. This data can be anything e.g. raw bytes, structured JSON, text etc.</li>
+<li><code>error</code>: contains description of the error associated with a message. This is important to note, <strong>because messages are not dropped on error</strong>. i.e. if a processor fails on a message, the error property is tagged with the error description and the message is moved to the next processor.</li>
+</ul>
+
+<a href="#usage" id="usage" style="color: inherit; text-decoration: none;">
+  <h1>Usage</h1>
+</a>
+<p>Now that you hopefully have a fair idea of what Benthos is and is not, it&#39;s time to get your hands dirty.</p>
+<p>A good starting point is to read the notes below and then head to the <code>examples</code> folders.</p>
+
+<a href="#using-high-level-apis-fromviato" id="using-high-level-apis-fromviato" style="color: inherit; text-decoration: none;">
+  <h2>Using high level APIs: from/via/to</h2>
+</a>
+<p>The following examples illustrate the basic usage. Most examples below make use of <code>bloblang</code>; please refer to <a href="https://www.benthos.dev/docs/guides/bloblang/about">link</a> for details on how to use it.</p>
+<pre><code class="language-js"><span class="hl-0">// import the required constructs</span><br/><span class="hl-1">import</span><span class="hl-2"> { </span><span class="hl-3">from</span><span class="hl-2">, </span><span class="hl-3">to</span><span class="hl-2"> } </span><span class="hl-1">from</span><span class="hl-2"> </span><span class="hl-4">&quot;exthos&quot;</span><br/><br/><span class="hl-0">// example: create a route, start it and stop it after 5 seconds</span><br/><span class="hl-5">from</span><span class="hl-2">({ </span><span class="hl-3">generate:</span><span class="hl-2"> { </span><span class="hl-3">mapping:</span><span class="hl-2"> </span><span class="hl-4">&#39;root = count(&quot;gen&quot;)&#39;</span><span class="hl-2"> } }).</span><span class="hl-5">to</span><span class="hl-2">({ </span><span class="hl-3">stdout:</span><span class="hl-2"> {} }).</span><span class="hl-5">start</span><span class="hl-2">().</span><span class="hl-5">stopAfter</span><span class="hl-2">(</span><span class="hl-4">&quot;5s&quot;</span><span class="hl-2">)</span><br/><br/><span class="hl-0">// example: create a route with a terminating source and start it.</span><br/><span class="hl-0">// generate input with count = 2 will geenrate 2 msgs and </span><br/><span class="hl-5">from</span><span class="hl-2">({ </span><span class="hl-3">generate:</span><span class="hl-2"> { </span><span class="hl-3">mapping:</span><span class="hl-2"> </span><span class="hl-4">&#39;root = count(&quot;gen&quot;)&#39;</span><span class="hl-2">, </span><span class="hl-3">count:</span><span class="hl-2"> </span><span class="hl-6">2</span><span class="hl-2"> } }).</span><span class="hl-5">to</span><span class="hl-2">({ </span><span class="hl-3">stdout:</span><span class="hl-2"> {} }).</span><span class="hl-5">start</span><span class="hl-2">()</span><br/><span class="hl-0">// no need to specify stop explicitly here as the route will stop after 2 messages are processed</span>
+</code></pre>
+<p>For more examples refer to: <a href="/examples/hlapis/README.md">examples dir</a></p>
+
+<a href="#othernon-functional-features" id="othernon-functional-features" style="color: inherit; text-decoration: none;">
+  <h1>Other/non-functional features</h1>
+</a>
+
+<a href="#error-handling" id="error-handling" style="color: inherit; text-decoration: none;">
+  <h2>error handling</h2>
+</a>
+<p>Error handling </p>
+
+<a href="#logging" id="logging" style="color: inherit; text-decoration: none;">
+  <h2>logging</h2>
+</a>
+<p>exthos makes use of the fabulous debug module. The namespaces that can be configured with <code>DEBUG=</code> are:</p>
+<pre><code><span class="hl-2">    - </span><span class="hl-3">exthos</span><span class="hl-2">*</span><br/><span class="hl-2">    - </span><span class="hl-7">exthos</span><span class="hl-2">:</span><span class="hl-7">engine</span><span class="hl-2">:*</span><br/><span class="hl-2">    - </span><span class="hl-7">exthos</span><span class="hl-2">:</span><span class="hl-7">engineProcess</span><span class="hl-2">:*</span>
+</code></pre>
+
+<a href="#metrics" id="metrics" style="color: inherit; text-decoration: none;">
+  <h2>metrics</h2>
+</a>
+<p>Coming soon.</p>
+</div></div>
+<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+<div class="tsd-navigation settings">
+<details class="tsd-index-accordion"><summary class="tsd-accordion-summary">
+<h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4.93896 8.531L12 15.591L19.061 8.531L16.939 6.409L12 11.349L7.06098 6.409L4.93896 8.531Z" fill="var(--color-text)"></path></svg> Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility">
+<h4 class="uppercase">Member Visibility</h4><form>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-private" name="private"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Private</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></form></div>
+<div class="tsd-theme-toggle">
+<h4 class="uppercase">Theme</h4><select id="theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<nav class="tsd-navigation primary">
+<details class="tsd-index-accordion" open><summary class="tsd-accordion-summary">
+<h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4.93896 8.531L12 15.591L19.061 8.531L16.939 6.409L12 11.349L7.06098 6.409L4.93896 8.531Z" fill="var(--color-text)"></path></svg> Modules</h3></summary>
+<div class="tsd-accordion-details">
+<ul>
+<li class="current selected"><a href="modules.html">exthos</a>
+<ul></ul></li></ul></div></details></nav>
+<nav class="tsd-navigation secondary menu-sticky">
+<ul>
+<li class="tsd-kind-class"><a href="classes/Engine.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-class)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-128-path"></rect><path d="M11.898 16.1201C11.098 16.1201 10.466 15.8961 10.002 15.4481C9.53803 15.0001 9.30603 14.3841 9.30603 13.6001V9.64012C9.30603 8.85612 9.53803 8.24012 10.002 7.79212C10.466 7.34412 11.098 7.12012 11.898 7.12012C12.682 7.12012 13.306 7.34812 13.77 7.80412C14.234 8.25212 14.466 8.86412 14.466 9.64012H13.386C13.386 9.14412 13.254 8.76412 12.99 8.50012C12.734 8.22812 12.37 8.09212 11.898 8.09212C11.426 8.09212 11.054 8.22412 10.782 8.48812C10.518 8.75212 10.386 9.13212 10.386 9.62812V13.6001C10.386 14.0961 10.518 14.4801 10.782 14.7521C11.054 15.0161 11.426 15.1481 11.898 15.1481C12.37 15.1481 12.734 15.0161 12.99 14.7521C13.254 14.4801 13.386 14.0961 13.386 13.6001H14.466C14.466 14.3761 14.234 14.9921 13.77 15.4481C13.306 15.8961 12.682 16.1201 11.898 16.1201Z" fill="var(--color-text)" id="icon-128-text"></path></svg>Engine</a></li>
+<li class="tsd-kind-class"><a href="classes/Stream.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-128-path"></use><use href="#icon-128-text"></use></svg>Stream</a></li>
+<li class="tsd-kind-variable"><a href="variables/default.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-variable)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-32-path"></rect><path d="M11.106 16L8.85 7.24H9.966L11.454 13.192C11.558 13.608 11.646 13.996 11.718 14.356C11.79 14.708 11.842 14.976 11.874 15.16C11.906 14.976 11.954 14.708 12.018 14.356C12.09 13.996 12.178 13.608 12.282 13.192L13.758 7.24H14.85L12.582 16H11.106Z" fill="var(--color-text)" id="icon-32-text"></path></svg>default</a></li>
+<li class="tsd-kind-variable"><a href="variables/engine-1.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><use href="#icon-32-path"></use><use href="#icon-32-text"></use></svg>engine</a></li>
+<li class="tsd-kind-function"><a href="functions/from.html" class="tsd-index-link"><svg class="tsd-kind-icon" width="24" height="24" viewBox="0 0 24 24"><rect fill="var(--color-icon-background)" stroke="var(--color-ts-function)" stroke-width="1.5" x="1" y="1" width="22" height="22" rx="6" id="icon-64-path"></rect><path d="M9.39 16V7.24H14.55V8.224H10.446V11.128H14.238V12.112H10.47V16H9.39Z" fill="var(--color-text)" id="icon-64-text"></path></svg>from</a></li></ul></nav></div></div>
+<div class="container tsd-generator">
+<p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></div>
+<div class="overlay"></div><script src="assets/main.js"></script></body></html>

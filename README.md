@@ -15,7 +15,7 @@ exthos has two set of APIs:
 - the low level APIs and 
 - the high level APIs. 
    
-**Users are encouraged to use the HL APIs**, although an overview of the LL APIs help create a solid foundation. 
+**Users are encouraged to use the HL APIs**, although an overview of the LL APIs helps to create a good foundation. 
 
 ## Overview: Low level APIs
 At the core of exthos is the `engine` that is responsible for running the `engineProcess`. The `engineProcess` is esentially a child process that runs benthos (in streams mode). 
@@ -85,24 +85,12 @@ from({ generate: { mapping: 'root = count("gen")', count: 2 } }).to({ stdout: {}
 // no need to specify stop explicitly here as the route will stop after 2 messages are processed
 ```
 
-More advanced example
-```js
-import { from, engine } from "exthos"
-
-// gain some more control on the engine
-engine.setEngineOptions({logger:{level: "ALL", format: "json"}})
-engine.useDefaultEventHandler()
-
-// example: generate and batch the messages two at a time before sending them to stdout
-let route = from({ generate: { mapping: 'root = count("gen")' } }).batchAtInput({ count: 2 }).to({ stdout: {} })
-route.start()
-
-setTimeout(() => {
-    route.stop()
-}, 8000);
-```
+For more examples refer to: [examples dir](/examples/hlapis/README.md)
 
 # Other/non-functional features
+
+## error handling
+Error handling 
 
 ## logging
 exthos makes use of the fabulous debug module. The namespaces that can be configured with `DEBUG=` are:

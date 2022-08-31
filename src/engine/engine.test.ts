@@ -22,12 +22,12 @@ describe("engine start stop", () => {
     test("stop engine that hasnt started", async () => {
         expect.assertions(1)
         await expect(engine.stop()).resolves.not.toThrow()
-    })
+    }, engine.waitForActiveEventMs + 5000) // stop will wait for waitForActiveEventMs before resolving/rejecting
 
     test("start engine that stops itself after 10s", async () => {
         expect.assertions(2)
         await expect(engine.start()).resolves.not.toThrow()
         let eventObj = (await EventEmitter2.once(engine, engine.engineEvents["engine.inactive"]))[0]
         expect(eventObj).toHaveProperty(["msg"], "stopped successfully. reason:no streams for the last 10000ms")
-    }, 11000)
+    }, engine.waitForActiveEventMs + 11000)
 })

@@ -81,7 +81,7 @@ class Engine extends EngineProcessAPI {
     private _shutdownAfterInactivityFor: number = 10000              // should usually be more than self._waitForActiveEventMs
     // must be more than _mgmtEventsFreqMs
     private _mgmtEventsFreqMs: number = 2000
-    private _waitForActiveEventMs: number = 1000
+    public waitForActiveEventMs: number = 5000 // must be more than 2-3 secs to give time for engine to turn active
     private _keepAliveInterval!: NodeJS.Timeout //= setInterval(() => { }, 1 << 30);   // TODO: this should only be used in remote mode
 
     /**
@@ -484,11 +484,11 @@ class Engine extends EngineProcessAPI {
         return await self._engineInitStartStopMutex.runExclusive(async () => {
             // if engine is not active, wait for it
             if (!self._isActive) {
-                self._debugLog("waiting for event=engine.active for 2 seconds before stopping")
+                self._debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before stopping`)
                 try {
-                    await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs) // TODO test: is it 2 seconds? or ms // should be configurable                    
+                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs) // TODO test: is it 2 seconds? or ms // should be configurable                    
                 } catch (e) {
-                    self._debugLog("engine isActive=false, ignoring the call to stop()")
+                    self._debugLog("engine isActive=false, skipping stopping")
                     clearInterval(self._keepAliveInterval)
                     return self
                 }
@@ -622,14 +622,15 @@ class Engine extends EngineProcessAPI {
      */
     public async add(...streams: Stream[]): Promise<Engine> {
         let self = this
-        self._traceLog(`_add called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        self._traceLog(`add called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
 
         return await self._engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
             if (!self._isActive) {
+                self._debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before adding`)
                 try {
-                    await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs)
+                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
                 } catch (e) {
-                    self._debugLog("engine isActive=false, skipping _apiPostStream")
+                    self._debugLog("engine isActive=false, skipping adding/_apiPostStream")
                     return self
                 }
             }
@@ -656,14 +657,15 @@ class Engine extends EngineProcessAPI {
      */
     public async update(...streams: Stream[]): Promise<Engine> {
         let self = this
-        self._traceLog(`_update called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        self._traceLog(`update called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
 
         return await self._engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
             if (!self._isActive) {
+                self._debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before updating`)
                 try {
-                    await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs)
+                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
                 } catch (e) {
-                    self._debugLog("engine isActive=false, skipping _apiPutStream")
+                    self._debugLog("engine isActive=false, skipping update/_apiPutStream")
                     return self
                 }
             }
@@ -703,10 +705,11 @@ class Engine extends EngineProcessAPI {
 
         return await self._engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
             if (!self._isActive) {
+                self._debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before removing`)
                 try {
-                    await self.waitFor(self.engineEvents["engine.active"], self._waitForActiveEventMs)
+                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
                 } catch (e) {
-                    self._debugLog("engine isActive=false, skipping _apiDeleteStream")
+                    self._debugLog("engine isActive=false, skipping removing/_apiDeleteStream")
                     return self
                 }
             }

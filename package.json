@@ -19,7 +19,7 @@
     "buildwit": "tsc -w",
     "testit": "npm run buildit && node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests --runInBand --silent=false",
     "publishit": "npm publish",
-    "dogit": "git add . && git commit -F .commitmsg.md && git push",
+    "dogit": "npm run sitebuildit && git add . && git commit -F .commitmsg.md && git push",
     "packit": "npm pack --pack-destination ./_tars",
     "bumpmajor": "npm version --no-git-tag-version major",
     "bumpminor": "npm version --no-git-tag-version minor",

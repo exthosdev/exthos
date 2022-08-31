@@ -1,4 +1,4 @@
-name: integration_test_hlapis
+name: integration_tests_stream_engine
 
 on:
   push:
@@ -21,4 +21,4 @@ jobs:
       - run: npm ci
       - run: npm run cleanit
       - run: npm run buildit
-      - run: DEBUG=exthos* examples/hlapis/.run_all_isLocal.sh
+      - run: DEBUG=exthos* examples/stream_engine/.run_all_isLocal.sh

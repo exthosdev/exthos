@@ -10,6 +10,10 @@ import { defaultProcessorValues } from '../defaults/defaultProcessorValues.js';
 import debug from "debug";
 import { TStreamConfig } from '../types/streamConfig.js';
 import * as nanomsg from "nanomsg";
+import merge from "lodash.merge";
+import { TInput } from '../types/inputs.js';
+import { TOutput } from '../types/outputs.js';
+import { TProcessor } from '../types/processors.js';
 
 class Stream {
     readonly #streamConfigFilePath: string = path.join(tmpdir(), "exthos_stream_conf_" + randomUUID() + ".json")
@@ -18,13 +22,8 @@ class Stream {
     #abortController = new AbortController();
     hasInPort: boolean = false
     hasOutPort: boolean = false
-    // #logger = {     // TODO: get rid of logger
-    //     "trace": debug("trace:Engine"),
-    //     "debug": debug("debug:Engine"),
-    //     "info": debug("info:Engine"),
-    //     "error": debug("error:Engine")
-    // }
-    #debug = debug("exthos").extend("stream:debug")
+
+    #debugLog = debug("exthos").extend("stream:debugLog")
     #status: "stopped" | "started" = "stopped"
     #inPort!: nanomsg.Socket // internal.Writable
     #outPort!: nanomsg.Socket // internal.Readable
@@ -55,9 +54,9 @@ class Stream {
             autostart = false
         }
 
-        this.#debug("received streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
+        this.#debugLog("received streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
         this._sanitizeStreamConfigNWriteToStreamConfigFilePath()
-        this.#debug("sanitized streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
+        this.#debugLog("sanitized streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
 
         if (autostart) {
             this.start()
@@ -79,7 +78,7 @@ class Stream {
                 );
 
                 this.#childProcess.on("spawn", () => {
-                    this.#debug("stream started successfuly")
+                    this.#debugLog("stream started successfuly")
                     this.#status = "started"
                 })
 
@@ -91,14 +90,13 @@ class Stream {
                 await this.#childProcess
 
                 this.stop() // for cleanup
-                // this.#status = "stopped"
-                this.#debug("stream stopped (completed) successfully")
+                this.#debugLog("stream stopped (completed) successfully")
             }
         } catch (err: any) {
             this.#status = "stopped"
 
             if (err.killed && err.isCanceled) {
-                this.#debug("stream (force) stopped successfully")      // abort was used
+                this.#debugLog("stream (force) stopped successfully")      // abort was used
             } else if (err.all) {
                 throw new Error(`stream failed: ${err.all}`)    // errors from the childProcess
             } else {
@@ -123,13 +121,13 @@ class Stream {
 
     private _sanitizeStreamConfigNWriteToStreamConfigFilePath() {
         let self = this
-        // TODO the same for input and output processors
 
+        // TODO: use replaceKeys and replaceValueForKey for TJavascript when we workt to enhance it
         // replace TJavascript with TSubprocess in pipeline.processors
         this.#streamConfig.pipeline?.processors.forEach((processor, processorIdx) => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
             if (ipo === "javascript") {
                 let jsFile = path.join(tmpdir(), "jsFile_" + randomUUID() + ".js");
-                self.#debug("writing javascript to file:", jsFile);
+                self.#debugLog("writing javascript to file:", jsFile);
 
                 try {
                     let code = `//js code autocreated by exthos
@@ -216,145 +214,190 @@ class Stream {
             }
         }))
 
-        // if outport exists, assign a unix socket for ips to the value for outport
-        utils.replaceValuesForKeys(this.#streamConfig, {
-            "outport": {
-                urls: [`ipc:///tmp/${self.streamID}.outport.sock`]
-            },
-            "inport": {
-                urls: [`ipc:///tmp/${self.streamID}.inport.sock`],
-                bind: false
+        // all labels must match ^[a-z0-9_]+$ and NOT start with underscore
+        // so we consvert any non compliant label by replacing those chars with an _
+        utils.replaceValueForKey(this.#streamConfig, {
+            "label": (existingValue: string) => {
+                let newValue = existingValue.toLowerCase()  // only lowercase is allowed
+                newValue = newValue.replace(/[^a-z0-9_]/g,"_"); // replace all non compliant chars with _
+                newValue = newValue.replace(/^_*/g, "") // replace leading underscores if any
+                return newValue
             }
         })
 
-        // covert inport to stdin and allow write and end
-        // convert outport into stdout and allow read
+        // if outport exists, assign a unix socket for ipc to the value for outport
+        utils.replaceValueForKey(this.#streamConfig, {
+            "inport": (_: any) => {
+                return {
+                    urls: [`ipc:///tmp/${self.streamID}.inport.sock`],
+                    bind: false
+                }
+            },
+            "outport": (_: any) => {
+                return {
+                    urls: [`ipc:///tmp/${self.streamID}.outport.sock`]
+                }
+            }
+        })
+
+        // covert inport to nanomsg and allow write and end
+        // convert outport into anomsg and allow read
         // covert direct to inproc
         utils.replaceKeys(this.#streamConfig, {
-            "inport": () => { 
-                self.hasInPort = true; 
+            "inport": () => {
+                self.hasInPort = true;
                 if (!this.#inPort) {
-                    // create inPort if not already created
+                    // create inPort on stream in js-land if not already created
                     this.#inPort = nanomsg.socket('push')
                     this.#inPort.bind(`ipc:///tmp/${self.streamID}.inport.sock`)
                 }
-                return "nanomsg" 
+                return "nanomsg"
             },
             "outport": () => {
                 self.hasOutPort = true;
                 if (!this.#outPort) {
-                    // create outPort if not already created
+                    // create outPort on stream in js-land if not already created
                     this.#outPort = nanomsg.socket('pull')
                     this.#outPort.bind(`ipc:///tmp/${self.streamID}.outport.sock`)
                 }
                 return "nanomsg"
-                // return "stdout"
             },
             "direct": () => { return "inproc" }
         })
 
-        // // covert inport to stdin and allow write and end
-        // if (Object.keys(this.#streamConfig.input).includes("inport")) {
-        //     let o = this.#streamConfig.input
-        //     let old_key = "inport"
-        //     let new_key = "stdin"
-        //     Object.defineProperty(o, new_key, Object.getOwnPropertyDescriptor(o, old_key)!);
-        //     delete (o as any)[old_key];
-
-        //     // mark the instance to allow .write and .end method
-        //     this.#hasInPort = true
-        // }
-
-        // // convert outport into stdout and allow read
-        // if (Object.keys(this.#streamConfig.output).includes("outport")) {
-        //     let o = this.#streamConfig.output
-        //     let old_key = "outport"
-        //     let new_key = "stdout"
-        //     Object.defineProperty(o, new_key, Object.getOwnPropertyDescriptor(o, old_key)!);
-        //     delete (o as any)[old_key];
-
-        //     // mark the instance to allow .write and .end method
-        //     this.#hasOutPort = true
-        // }
-
-        // // covert direct to inproc for input
-        // if (Object.keys(this.#streamConfig.input).includes("direct")) {
-        //     let o = this.#streamConfig.input
-        //     let old_key = "direct"
-        //     let new_key = "inproc"
-        //     Object.defineProperty(o, new_key, Object.getOwnPropertyDescriptor(o, old_key)!);
-        //     delete (o as any)[old_key];
-        // }
-        // //convert direct to inproc for output
-        // if (Object.keys(this.#streamConfig.output).includes("direct")) {
-        //     let o = this.#streamConfig.output
-        //     let old_key = "direct"
-        //     let new_key = "inproc"
-        //     Object.defineProperty(o, new_key, Object.getOwnPropertyDescriptor(o, old_key)!);
-        //     delete (o as any)[old_key];
-        // }
-
-        // apply defaults to input
-        Object.keys(this.#streamConfig.input).filter(ipo => ipo !== "label").forEach(ipo => {   // ipo=input, processor or output
-            Object.keys((defaultInputValues as any)[ipo]).forEach(k => {
-                if (!Object.keys((this.#streamConfig.input as any)[ipo]).includes(k)) {
-                    // if a key e.g. codec isnt found then 'assign'
-                    (this.#streamConfig.input as any)[ipo][k] = (defaultInputValues as any)[ipo][k]
-                }
-            })
+        // apply default to input
+        utils.replaceValueForKey(this.#streamConfig, {
+            "input": (existingValue: TInput) => {
+                let componentType = Object.keys(existingValue).filter(x => x !== "label")[0] // eg. generate
+                return merge({}, { label: "", [componentType]: (defaultInputValues as any)[componentType] }, existingValue);
+            }
         })
+
+        // apply default to output
+        utils.replaceValueForKey(this.#streamConfig, {
+            "output": (existingValue: TOutput) => {
+                let componentType = Object.keys(existingValue).filter(x => x !== "label")[0] // eg. generate
+                return merge({}, { label: "", [componentType]: (defaultOutputValues as any)[componentType] }, existingValue);
+            }
+        })
+
+        // apply default to processors
+        utils.replaceValueForKey(this.#streamConfig, {
+            "processors": (existingValues: TProcessor[]) => {
+                let toReturn: TProcessor[] = []
+                existingValues.forEach(existingValue => {
+                    let componentType = Object.keys(existingValue).filter(x => x !== "label")[0] // eg. generate
+                    toReturn.push(merge({}, { label: "", [componentType]: (defaultProcessorValues as any)[componentType] }, existingValue))
+                })
+                return toReturn
+            }
+        })
+
+        // apply default to inputs
+        utils.replaceValueForKey(this.#streamConfig, {
+            "inputs": (existingValues: TInput[]) => {
+                let toReturn: TInput[] = []
+                existingValues.forEach(existingValue => {
+                    let componentType = Object.keys(existingValue).filter(x => x !== "label")[0] // eg. generate
+                    toReturn.push(merge({}, { label: "", [componentType]: (defaultInputValues as any)[componentType] }, existingValue))
+                })
+                return toReturn
+            }
+        })
+
+        // apply default to outputs
+        utils.replaceValueForKey(this.#streamConfig, {
+            "inputs": (existingValues: TOutput[]) => {
+                let toReturn: TOutput[] = []
+                existingValues.forEach(existingValue => {
+                    let componentType = Object.keys(existingValue).filter(x => x !== "label")[0] // eg. generate
+                    toReturn.push(merge({}, { label: "", [componentType]: (defaultOutputValues as any)[componentType] }, existingValue))
+                })
+                return toReturn
+            }
+        })
+
+        // // apply defaults to input
+        // Object.keys(this.#streamConfig.input).filter(ipo => ipo !== "label").forEach(ipo => {   // ipo=input, processor or output
+        //     Object.keys((defaultInputValues as any)[ipo]).forEach(k => {
+        //         if (!Object.keys((this.#streamConfig.input as any)[ipo]).includes(k)) {
+        //             // if a key e.g. codec isnt found then 'assign'
+        //             (this.#streamConfig.input as any)[ipo][k] = (defaultInputValues as any)[ipo][k]
+        //         }
+        //     })
+        // })
 
         // apply defaults to output
-        Object.keys(this.#streamConfig.output).filter(ipo => ipo !== "label").forEach(ipo => {
-            Object.keys((defaultOutputValues as any)[ipo]).forEach(k => {
-                if (!Object.keys((this.#streamConfig.output as any)[ipo]).includes(k)) {
-                    // if a key e.g. codec isnt found then 'assign'
-                    (this.#streamConfig.output as any)[ipo][k] = (defaultOutputValues as any)[ipo][k]
-                }
-            })
-        })
+        // Object.keys(this.#streamConfig.output).filter(ipo => ipo !== "label").forEach(ipo => {
+        //     Object.keys((defaultOutputValues as any)[ipo]).forEach(k => {
+        //         if (!Object.keys((this.#streamConfig.output as any)[ipo]).includes(k)) {
+        //             // if a key e.g. codec isnt found then 'assign'
+        //             (this.#streamConfig.output as any)[ipo][k] = (defaultOutputValues as any)[ipo][k]
+        //         }
+        //     })
+        // })
 
-        // apply defaults to input.processors
-        this.#streamConfig.input?.processors?.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
-            Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
-                if (!Object.keys((processor as any)[ipo]).includes(k)) {
-                    // if a key e.g. codec isnt found then 'assign'
-                    (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
-                }
-            })
-        }))
-        // apply defaults to pipeline.processors
-        this.#streamConfig.pipeline?.processors.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
-            Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
-                if (!Object.keys((processor as any)[ipo]).includes(k)) {
-                    // if a key e.g. codec isnt found then 'assign'
-                    (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
-                }
-            })
-        }))
-        // apply defaults to output.processors
-        this.#streamConfig.output?.processors?.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
-            Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
-                if (!Object.keys((processor as any)[ipo]).includes(k)) {
-                    // if a key e.g. codec isnt found then 'assign'
-                    (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
-                }
-            })
-        }))
+        // // apply defaults to input.processors
+        // this.#streamConfig.input?.processors?.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
+        //     Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
+        //         if (!Object.keys((processor as any)[ipo]).includes(k)) {
+        //             // if a key e.g. codec isnt found then 'assign'
+        //             (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
+        //         }
+        //     })
+        // }))
+        // // apply defaults to pipeline.processors
+        // this.#streamConfig.pipeline?.processors.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
+        //     Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
+        //         if (!Object.keys((processor as any)[ipo]).includes(k)) {
+        //             // if a key e.g. codec isnt found then 'assign'
+        //             (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
+        //         }
+        //     })
+        // }))
+        // // apply defaults to output.processors
+        // this.#streamConfig.output?.processors?.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
+        //     Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
+        //         if (!Object.keys((processor as any)[ipo]).includes(k)) {
+        //             // if a key e.g. codec isnt found then 'assign'
+        //             (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
+        //         }
+        //     })
+        // }))
 
-        // this._streamConfigFilePath = path.join(tmpdir(), "exthos_stream_conf_" + randomUUID() + ".json")
         try {
             fs.writeFileSync(this.#streamConfigFilePath, JSON.stringify(this.#streamConfig))
         } catch (err) {
             throw new Error(`failed to write config into tmp: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
         }
     }
-
-    // public toJSON(): { streamID: string } {
-    //     return {
-    //         streamID: this.streamID
-    //     }
-    // }
 }
 
 export { Stream }
+
+// quick testing
+// new Stream({
+//     input: {
+//         broker: {
+//             inputs: [
+//                 { generate: { mapping: `root = "hi"`, count: 2 } }
+//             ]
+//         },
+//         processors: [
+//             { 
+//                 label: "LABEL_input.processors.log",
+//                 log: { message: 'input.processors.log here :)' } }
+//         ]
+//     },
+//     pipeline: {        
+//         processors: [
+//             { branch: {
+//                 processors: [
+//                     { log: { message: 'pipeline.processors.branch.processors.log here :)' } }
+//                 ]
+//             }}
+            
+//         ]
+//     },
+//     output: { stdout: {} }
+// })

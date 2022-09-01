@@ -18,7 +18,7 @@ type TOutputStdout = {
 type TOutputOutport = {
     label?: ""
     outport: {
-        codec?: "all-bytes" | "append" | "lines" | `delim:${string}`
+        // codec?: "all-bytes" | "append" | "lines" | `delim:${string}`
     }
 }
 

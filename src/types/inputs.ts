@@ -20,8 +20,8 @@ type TInputStdin = {
 type TInputInPort = {
     label?: string,
     inport: {
-        codec?: "auto" | "all-bytes" | `chunker:${string}` | "csv" | `csv:${string}` | `delim:${string}` | "gzip" | "lines" | "multipart" | "tar",
-        max_buffer?: number
+        // codec?: "auto" | "all-bytes" | `chunker:${string}` | "csv" | `csv:${string}` | `delim:${string}` | "gzip" | "lines" | "multipart" | "tar",
+        // max_buffer?: number
     }
 }
 

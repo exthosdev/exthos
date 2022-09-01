@@ -28,6 +28,7 @@
   - [Usage](#usage)
   - [Using high level APIs: from/via/to](#using-high-level-apis-fromviato)
   - [Other/non-functional features](#othernon-functional-features)
+    - [Labels](#labels)
     - [Error handling](#error-handling)
     - [Logging](#logging)
     - [Events](#events)
@@ -150,6 +151,16 @@ from({ generate: { mapping: 'root = count("gen")', count: 2 } }).to({ stdout: {}
 For more examples refer to: [examples dir](/examples/hlapis/README.md)
 
 ## Other/non-functional features
+
+### Labels
+
+> this secions covers `llapis` only
+
+Labels can be optionally assigned to all components. They aid in debugging and tracing.
+The labels will be sanitised by the stream instace to follow the following rules:
+
+- should match the regular expression /^[a-z0-9_]+$/
+- must not start with an underscore
 
 ### Error handling
 

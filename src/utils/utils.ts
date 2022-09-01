@@ -74,16 +74,19 @@ function replaceKeys(obj: any, keyMap: { [oldKey: string]: () => string }) {
                 let newKey = keyMap[oldKey]
                 Object.defineProperty(obj, newKey(), Object.getOwnPropertyDescriptor(obj, oldKey)!);
                 delete (obj as any)[oldKey];
-                return obj
-            } else {
-                if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    iterate(obj[key])
-                } else if (Array.isArray(obj[key])) {
-                    obj[key].forEach((el: any) => {
-                        iterate(el)
-                    })
+                if (!(typeof obj[key] === 'object' && obj[key] !== null)) {
+                    // reutrn if not an object, otherwise need to recurse
+                    return obj
                 }
+            } //else {
+            if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+                iterate(obj[key])
+            } else if (Array.isArray(obj[key])) {
+                obj[key].forEach((el: any) => {
+                    iterate(el)
+                })
             }
+            //}
         })
     }
     iterate(obj)
@@ -98,24 +101,24 @@ function replaceKeys(obj: any, keyMap: { [oldKey: string]: () => string }) {
  * @param kv 
  * @returns 
  */
-function replaceValuesForKeys(obj: any, kv: { [forKey: string]: any }) {
+function replaceValueForKey<O, T>(obj: O, kv: { [forKey: string]: (existingValue: T) => T }) {
     let iterate = (obj: any) => {
         Object.keys(obj).forEach(key => {
             if (Object.keys(kv).includes(key)) {
-                obj[key] = kv[key]
-                // let oldKey = key
-                // let newKey = keyMap[oldKey]
-                // Object.defineProperty(obj, newKey(), Object.getOwnPropertyDescriptor(obj, oldKey)!);
-                // delete (obj as any)[oldKey];
-                return obj
-            } else {
-                if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    iterate(obj[key])
-                } else if (Array.isArray(obj[key])) {
-                    obj[key].forEach((el: any) => {
-                        iterate(el)
-                    })
+                obj[key] = kv[key](obj[key])    // assign the value, usually merged value will be provided by kv[forKey] func
+                if (!(typeof obj[key] === 'object' && obj[key] !== null)) {
+                    // return only if not an object, so that nested properties with same forKey are also taken care of
+                    return obj
                 }
+            }
+            if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+                // if an object, then recurse
+                iterate(obj[key])
+            } else if (Array.isArray(obj[key])) {
+                // if an array, then recurse for each element
+                obj[key].forEach((el: any) => {
+                    iterate(el)
+                })
             }
         })
     }
@@ -152,4 +155,4 @@ function getISOStringLocalTz(date: Date = new Date()) {
 
 }
 
-export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValuesForKeys, proxyPromise, getISOStringLocalTz }
+export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValueForKey, proxyPromise, getISOStringLocalTz }

@@ -44,9 +44,9 @@ type TJavascript = {
 type TBranch = {
     label?: string,
     branch: {
-        request_map: string
+        request_map?: string
         processors: TProcessor[]
-        result_map: string
+        result_map?: string
     }
 }
 

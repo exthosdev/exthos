@@ -12,7 +12,6 @@ export { from, engine }
 
 // quick testing
 // let route = from({ generate: { mapping: 'root = count("gen")', count: 1 } })
-//     ._via({ log: { message: "log#1" } })
-//     ._via({ log: { message: "log#2" } })
+//     ._via({ bloblang: `throw("err0r")` })
 //     .to({ stdout: {} })
 // route.start().stop()

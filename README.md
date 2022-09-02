@@ -16,6 +16,7 @@
 - [Theory](#theory)
   - [Motivation](#motivation)
   - [How exthos works](#how-exthos-works)
+  - [How to use exthos](#how-to-use-exthos)
     - [Overview: Low level APIs](#overview-low-level-apis)
     - [Overview: High level APIs](#overview-high-level-apis)
   - [Components](#components)
@@ -34,7 +35,9 @@
     - [Events](#events)
     - [Metrics](#metrics)
     - [Tracing and Telemetry](#tracing-and-telemetry)
-  - [Acknowledgement](#acknowledgement)
+- [Project status](#project-status)
+- [Compatability & Support](#compatability--support)
+- [Acknowledgement](#acknowledgement)
 
 ---
 
@@ -48,9 +51,20 @@ javascript is the most common programming language (source: stackoverflow). The 
 
 exthos attempts to bring the two together to provide a streaming processing engine with intuitive APIs - heavily inspired by the Apache Camel project.
 
-Acknowledgement: exthos makes heavy use of benthos, which is an amazing stream processing package written in golang. While benthos promotes file based configuration, exthos promotes the use of Integration DSL within Javascript.
+javascript with typescript provides a solid foundation for building a Domain Specific Language (DSL). exthos attempts to bring streaming/integration DSL to work with otherwise a configuration based stream engine called benthos.
 
 ## How exthos works
+
+`exthos` has two modes of operations:
+
+- local `isLocal=true`: In this mode, the engine takes on the responsibility of managning the engineProcess itself
+- remote `isLocal=false`: In this mode, the engine communicates with a remote engineProcess over HTTP
+
+> The default mode is `isLocal=true`
+
+The remote mode can be used for deploying into remote benthos processes, and in the future will also be used to define the `exthos deployment framework`
+
+## How to use exthos
 
 exthos has two set of APIs:
 
@@ -136,7 +150,7 @@ The following examples illustrate the basic usage. Most examples below make use 
 import { from, to } from "exthos"
 
 // example: create a route, start it and stop it after 5 seconds
-from({ generate: { mapping: 'root = count("gen")' } }).to({ stdout: {} }).start().stopAfter("5s")
+from({ generate: { mapping: 'root = count("gen")' } }).to({ stdout: {} }).start().stopAfter(5000)
 
 // example: create a route with a terminating source and start it.
 // generate input with count = 2 will geenrate 2 msgs and 
@@ -194,8 +208,8 @@ The following namespaces are available within `exthos`:
 | exthos:engineProcess:* | engineProcess logs of all `log levels`; engineProcess logs originate from the golang runtime |
 | exthos:engine:debugLog | engine logs of debugLog type, providing info debug and info level information |
 | exthos:engine:traceLog | engine logs of traceLog type, providing very detailed trace level information such as flow of code execution |
-| exthos:engine:eventLog* | engine logs of all eventLog type, providing events generated as a log; each logline is a JSON containing the `eventObj` |
-| exthos:engine:eventLog:`<eventName>` | engine logs of eventLog type and `<eventName>` eventName, refer to [Events](#events) for complete list of `<eventName>s`|
+| exthos:eventLog* | all eventLog type, providing events generated as a log; each logline is a JSON containing the `eventObj` |
+| exthos:eventLog:`<eventName>` | eventLog type with an `<eventName>` eventName, refer to [Events](#events) for complete list of `<eventName>s`|
 | exthos:engineProcess:trace |  engineProcess logs of trace level |
 | exthos:engineProcess:debug |  engineProcess logs of debug level |
 | exthos:engineProcess:info |  engineProcess logs of info level |
@@ -205,13 +219,39 @@ The following namespaces are available within `exthos`:
 
 ### Events
 
-`exthos` emits a lot of events. These can be used to trigger custom actions (aka handlers) in JS-land e.g. sending an alert notification on an `error` type event, or stopping the engine on a `fatal` type event, etc.
+`exthos` emits a lot of events. These can be used to trigger custom actions (aka handlers) in JS-land e.g. sending an alert notification on an `error` type category, or stopping the engine on a `fatal` type category, etc.
 
 - You could provide your own event handling functions (actions/handlers) using any of the following. For even more options on how to handle events refer to [EventEmitter2](https://github.com/hij1nx/EventEmitter2#readme) documentation
-  - `engine.on(...)` 
-  - `engine.onAny(...)`
+  - `engine.on("<eventName>", (eventObj) => {...})`
+  - `engine.onAny((eventName, eventObj) => {...})` - listens to all events geenrated by the engine and allows you to handle them at one place
 - Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler()`
-- Each event emits the `eventObj` that takes the form of `{ stream?: Stream, msg: string }` i.e. it always contains the `msg` string value and may contain the `stream` object if the event was generated in the context of a stream.
+  - the default event hander prints all events on the console/stdout,
+  - stops the engine on receiving an "engine.fatal" event, and
+  - stops the stream on receiving an "engineProcess.stream.error" event 5 times
+
+> As mention under [Logging](#logging), all events are also logged under `exthos:eventLog` namespace
+
+All possible events are shown in the table below:
+
+| Event name (eventName)| Event category | Event Object properties (eventObj) | Description |
+| -- | -- | -- | -- |
+| `engine.active` | general | `{msg: string, time: string}` | signifies that the engine is running |
+| `engine.inactive` | general | `{msg: string, time: string}` | signifies that the engine is NOT running |
+| `engine.warn` | warn | `{msg: string, time: string, error: Error}` | signifies a potential abnormality that was ignored/recovered |
+| `engine.error` | error | `{msg: string, time: string, error: Error}` | signifies a failure to an operation, not the entire engine |
+| `engine.fatal` | fatal | `{msg: string, time: string, error: Error}` | signifies a failure to the entire engine, leading to shutdown of the engine |
+| `engine.stream.add` | general | `{msg: string, time: string, stream: Stream}` | signifies that a stream has been added to the engine |
+| `engine.stream.update` | general | `{msg: string, time: string, stream: Stream}` | signifies that a stream has been updated to the engine |
+| `engine.stream.remove` | general | `{msg: string, time: string, stream: Stream}` | signifies that a stream has been removed from the engine |
+| `engine.stream.error` | error | `{msg: string, time: string, stream: Stream, error: Error}` | signifies an error when the engine tried to add/update/remove the stream from the engine |
+| `engineProcess.stream.fatal` | fatal | `{msg: string, time: string, stream: Stream, error: Error}` | jury is out on when engineProcess emits this |
+| `engineProcess.stream.error` | error | `{msg: string, time: string, stream: Stream, error: Error}` | jury is out on when engineProcess emits this |
+| `engineProcess.stream.warn` | error | `{msg: string, time: string, stream: Stream, error: Error}` | jury is out on when engineProcess emits this |
+| `engineProcess.stream.info` | error | `{msg: string, time: string, stream: Stream, error: Error}` | jury is out on when engineProcess emits this |
+| `engineProcess.stream.debug` | error | `{msg: string, time: string, stream: Stream, error: Error}` | jury is out on when engineProcess emits this |
+| `engineProcess.stream.trace` | error | `{msg: string, time: string, stream: Stream, error: Error}` | jury is out on when engineProcess emits this |
+
+Each event emits the `eventObj` that takes the form of `{ stream?: Stream, msg: string }` i.e. it always contains the `msg` string value and may contain the `stream` object if the event was generated in the context of a stream.
 
 ### Metrics
 
@@ -221,7 +261,20 @@ Coming soon.
 
 Coming soon.
 
-## Acknowledgement
+# Project status
+
+exthos is under heavy development, but **ready to be used in production for light usage**
+
+# Compatability & Support
+
+- only linux based OS will work
+- exthos to benthos compatability mapping follows:
+
+|exthos|benthos|
+|--|--|
+|v0.0.1 - v0.2.1 | v4.5.1 |
+
+# Acknowledgement
 
 While we thank all the projects that exthos depends on, we would like to show special gratitude towards the following projects:
 

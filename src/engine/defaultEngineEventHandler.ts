@@ -18,7 +18,7 @@ function defaultEngineEventHandler(this: Engine, event: string | string[], event
         throw new Error((eventObj as any)["msg"] || "engine.fatal occured, but msg was absent in the eventObj.msg");
         
     }
-    if (eventName === "engine.stream.error") {
+    if (eventName === "engineProcess.stream.error") {
         console.log(`           ${eventName}>>${JSON.stringify(eventObj)}`);
         streamErrorCounter[eventObj.stream.streamID] = streamErrorCounter[eventObj.stream.streamID] || 0
         streamErrorCounter[eventObj.stream.streamID] = streamErrorCounter[eventObj.stream.streamID] + 1

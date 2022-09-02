@@ -2,7 +2,7 @@
 Todo:
 - work on exthos.config.js
 
-- some events like engine.remove.stream, engine.active do not contain important keys like `"time":"2022-08-11T16:23:43+10:00", "@pwrdby":"exthos", "level":"???"`
+- some events like engine.stream.remove, engine.active do not contain important keys like `"time":"2022-08-11T16:23:43+10:00", "@pwrdby":"exthos", "level":"???"`
 - mark private class elements with #, like we did in stream.ts
 - expose metrics
 

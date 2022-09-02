@@ -31,17 +31,18 @@ type engineEventsTypes =
     "engine.warn" |
     "engine.error" |
     "engine.fatal" |
-    "engine.error.stream" |
-    "engine.add.stream" |
-    "engine.update.stream" |
-    "engine.remove.stream" |
 
-    "engine.stream.fatal" |
+    "engine.stream.add" |
+    "engine.stream.update" |
+    "engine.stream.remove" |
     "engine.stream.error" |
-    "engine.stream.warn" |
-    "engine.stream.info" |
-    "engine.stream.debug" |
-    "engine.stream.trace"
+
+    "engineProcess.stream.fatal" |
+    "engineProcess.stream.error" |
+    "engineProcess.stream.warn" |
+    "engineProcess.stream.info" |
+    "engineProcess.stream.debug" |
+    "engineProcess.stream.trace"
     ;
 
 /**
@@ -64,21 +65,21 @@ enum engineEventsEnums {
      * engine events related to a stream
      * the eventObj will always contain the stream object
      */
-    "engine.error.stream" = "engine.error.stream",  // an error occured with the engine while working on a stream e.g. add/update etc.
-    "engine.add.stream" = "engine.add.stream",
-    "engine.update.stream" = "engine.update.stream",
-    "engine.remove.stream" = "engine.remove.stream",
+    "engine.stream.add" = "engine.stream.add",
+    "engine.stream.update" = "engine.stream.update",
+    "engine.stream.remove" = "engine.stream.remove",
+    "engine.stream.error" = "engine.stream.error",  // an error occured with the engine while working on a stream e.g. add/update etc.
 
     /**
      * events from stream's logs as they are emitted by the engineProcess
      */
 
-    "engine.stream.fatal" = "engine.stream.fatal",      // fatal will .remove() the stream from the engine
-    "engine.stream.error" = "engine.stream.error",
-    "engine.stream.warn" = "engine.stream.warn",
-    "engine.stream.info" = "engine.stream.info",
-    "engine.stream.debug" = "engine.stream.debug",
-    "engine.stream.trace" = "engine.stream.trace",
+    "engineProcess.stream.fatal" = "engineProcess.stream.fatal",      // fatal will .remove() the stream from the engine
+    "engineProcess.stream.error" = "engineProcess.stream.error",
+    "engineProcess.stream.warn" = "engineProcess.stream.warn",
+    "engineProcess.stream.info" = "engineProcess.stream.info",
+    "engineProcess.stream.debug" = "engineProcess.stream.debug",
+    "engineProcess.stream.trace" = "engineProcess.stream.trace",
 }
 
 class Engine extends EngineProcessAPI {
@@ -98,9 +99,9 @@ class Engine extends EngineProcessAPI {
      * exthos:engine:event - print all the events as they are emitted
      * exthos:engine:trace - prints trace information showing flow of code
      */
-    #debug = debug("exthos").extend("engine")
-    #debugLog = this.#debug.extend("debugLog")
-    #traceLog = this.#debug.extend("traceLog")    // used to print trace lines e.g. line numbers
+    #debug = debug("exthos")
+    #debugLog = this.#debug.extend("engine").extend("debugLog")
+    #traceLog = this.#debug.extend("engine").extend("traceLog")    // used to print trace lines e.g. line numbers
     #eventLog = this.#debug.extend("eventLog")    // used to print trace lines e.g. line numbers
     #eventNameToEventLog: Partial<Record<engineEventsTypes, debug.Debugger>> = {}   // used to set the debug extend only once per eventName
 
@@ -147,7 +148,7 @@ class Engine extends EngineProcessAPI {
                     })
                 })
             } catch (e: any) {
-                self.emit(self.engineEvents["engine.fatal"], { msg:"engine constructor failed", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+                self.emit(self.engineEvents["engine.fatal"], { msg: "engine constructor failed", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
             }
 
             // engine.active/inactive to mutate the isActive on the engine        
@@ -157,7 +158,7 @@ class Engine extends EngineProcessAPI {
             self.on(self.engineEvents["engine.inactive"], () => {
                 self.#isActive = false
             })
-            self.on(self.engineEvents["engine.stream.fatal"], (eventObj: EventObj) => {
+            self.on(self.engineEvents["engineProcess.stream.fatal"], (eventObj: EventObj) => {
                 if (eventObj.stream) {
                     self.remove(eventObj.msg, eventObj.stream)
                 }
@@ -174,14 +175,19 @@ class Engine extends EngineProcessAPI {
         (event: engineEventsTypes, eventObj: EventObj, ...values: any[]) => {
             let self = this
 
-            // eventLog the event
-            if (!self.#eventNameToEventLog[event]) {
-                self.#eventNameToEventLog[event] = self.#eventLog.extend(event)
-            }
-            self.#eventNameToEventLog[event]!(JSON.stringify(eventObj))
+            try {
+                // eventLog the event
+                if (!self.#eventNameToEventLog[event]) {
+                    self.#eventNameToEventLog[event] = self.#eventLog.extend(event)
+                }
+                self.#eventNameToEventLog[event]!(JSON.stringify(eventObj))
 
-            // also send as an event
-            return super.emit(event as string, eventObj, ...values)
+                // also send as an event
+                return super.emit(event as string, eventObj, ...values)
+            } catch (e: any) {
+                self.emit(self.engineEvents["engine.error"], { msg: "unable to emit events", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+                return false
+            }
         }
 
     public get numStreams(): number {
@@ -198,12 +204,16 @@ class Engine extends EngineProcessAPI {
         let caller = getCaller()
         self.#traceLog(`updateEngineConfigOptions called from: ${caller}`)
 
-        await self.#constructorDone.promise
-        return await self.#engineUpdateConfigOptionsMutex.runExclusive(async () => {
-            self.#traceLog(`updateEngineConfigOptions mutex acquired from: ${caller}`)
-            await self.#setEngineConfig(receivedEngineConfig)
-            await self.#setEngineOpts(receivedEngineOpts)
-        })
+        try {
+            await self.#constructorDone.promise
+            return await self.#engineUpdateConfigOptionsMutex.runExclusive(async () => {
+                self.#traceLog(`updateEngineConfigOptions mutex acquired from: ${caller}`)
+                await self.#setEngineConfig(receivedEngineConfig)
+                await self.#setEngineOpts(receivedEngineOpts)
+            })
+        } catch (e: any) {
+            self.emit(self.engineEvents["engine.error"], { msg: "unable to update engine config and options", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+        }
     }
 
     async #setEngineConfig(receivedEngineConfig: Partial<EngineConfig>) {
@@ -271,6 +281,8 @@ class Engine extends EngineProcessAPI {
 
     async #createAxiosInstance() {
         let self = this
+        self.#traceLog(`createAxiosInstance constructor called from: ${getCaller()}`)
+
         try {
             this._axiosInstance = axios.create({ baseURL: `${this.#scheme}://${this.#engineConfig.http.address}` })
             axiosRetry(this._axiosInstance, {
@@ -292,16 +304,18 @@ class Engine extends EngineProcessAPI {
      */
     public async start(): Promise<Engine> {
         let self = this
-        self.#traceLog(`start called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        let caller = getCaller()
+        self.#traceLog(`start called from: ${caller}`)
 
-        return await self.#engineConstrStartStopMutex.runExclusive(async () => {
-            if (this.#isActive) {
-                // make sure engine is started after a mutex is acquired
-                self.#debugLog("engine isActive=true, ignoring the call to start()")
-                return self
-            }
+        try {
+            return await self.#engineConstrStartStopMutex.runExclusive(async () => {
+                self.#traceLog(`start mutex acquired from: ${caller}`)
+                if (this.#isActive) {
+                    // make sure engine is started after a mutex is acquired
+                    self.#debugLog("engine isActive=true, ignoring the call to start()")
+                    return self
+                }
 
-            try {
                 if (this.#isLocal) {
                     self.#debugLog("isLocal=true")
                     /**
@@ -388,7 +402,7 @@ class Engine extends EngineProcessAPI {
                                 self.#tempLocalServer.unref();
                                 isCloseErrorDeferred.resolve()
                             } else {
-                                self.emit(self.engineEvents["engine.error"], { msg: "unable to close tempLocalServer", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+                                self.emit(self.engineEvents["engine.fatal"], { msg: "unable to close tempLocalServer", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
                                 isCloseErrorDeferred.reject(e)
                             }
                         })
@@ -429,52 +443,60 @@ class Engine extends EngineProcessAPI {
                         write: function (chunk, _, next) {
                             // delay the log lines by 1 sec. if we dont do this, events are generated for streams even before they get added to the streamsMap
                             setTimeout(() => {
-                                // chunk can contain multiple json log lines
-                                chunk.toString().trim().split("\n").forEach((str: string) => {
-                                    // let j: { level: string, stream?: any, msg: string, time: string } = { level: "", msg: "", time: getISOStringLocalTz() }
-                                    let j: Omit<EventObj, "stream"> & { stream?: any } = { level: "", msg: "", time: getISOStringLocalTz() }
-                                    try {
-                                        // parse and add stream object instead of just the ID
-                                        j = JSON.parse(str)
-                                        j.stream = self.#streamsMap[j.stream] ? self.#streamsMap[j.stream] : j.stream
-                                        str = JSON.stringify(j)
+                                try {
+                                    // chunk can contain multiple json log lines
+                                    chunk.toString().trim().split("\n").forEach((str: string) => {
 
-                                        //TODO: check if j contains "stream", if not then events below should change to engine.info etc.
-                                    } catch (error) {
-                                        // do nothing, so it will fall into switch.default  
-                                    }
-                                    switch (j.level) {
-                                        case "off":
-                                        case "none":
-                                            break;
-                                        case "fatal":
-                                            j.error = { message: j.msg }
-                                            self.emit(self.engineEvents["engine.stream.fatal"], j)
-                                            break;
-                                        case "error":
-                                            j.error = { message: j.msg }
-                                            self.emit(self.engineEvents["engine.stream.error"], j)
-                                            break;
-                                        case "warn":
-                                        case "warning":
-                                            j.error = { message: j.msg }
-                                            self.emit(self.engineEvents["engine.stream.warn"], j)
-                                            break;
-                                        case "info":
-                                            self.emit(self.engineEvents["engine.stream.info"], j)
-                                            break;
-                                        case "debug":
-                                            self.emit(self.engineEvents["engine.stream.debug"], j)
-                                            break;
-                                        case "trace":
-                                            self.emit(self.engineEvents["engine.stream.trace"], j)
-                                            break;
-                                        default:
-                                            // case "all" goes here
-                                            console.log(str) // isnt a log line. v likely an output.stdout/err 
-                                            break;
-                                    }
-                                })
+                                        // hack: sometimes benthos sends null so skip it
+                                        if (str !== "null") {
+                                            // let j: { level: string, stream?: any, msg: string, time: string } = { level: "", msg: "", time: getISOStringLocalTz() }
+                                            let j: Omit<EventObj, "stream"> & { stream?: any } = { level: "", msg: "", time: getISOStringLocalTz() }
+                                            try {
+                                                // parse and add stream object instead of just the ID
+                                                j = JSON.parse(str)
+                                                j.stream = self.#streamsMap[j.stream] ? self.#streamsMap[j.stream] : j.stream
+                                                str = JSON.stringify(j)
+
+                                                //TODO: check if j contains "stream", if not then events below should change to engine.info etc.
+                                            } catch (error) {
+                                                // do nothing, so it will fall into switch.default  
+                                            }
+                                            switch (j.level) {
+                                                case "off":
+                                                case "none":
+                                                    break;
+                                                case "fatal":
+                                                    j.error = { message: j.msg }
+                                                    self.emit(self.engineEvents["engineProcess.stream.fatal"], j)
+                                                    break;
+                                                case "error":
+                                                    j.error = { message: j.msg }
+                                                    self.emit(self.engineEvents["engineProcess.stream.error"], j)
+                                                    break;
+                                                case "warn":
+                                                case "warning":
+                                                    j.error = { message: j.msg }
+                                                    self.emit(self.engineEvents["engineProcess.stream.warn"], j)
+                                                    break;
+                                                case "info":
+                                                    self.emit(self.engineEvents["engineProcess.stream.info"], j)
+                                                    break;
+                                                case "debug":
+                                                    self.emit(self.engineEvents["engineProcess.stream.debug"], j)
+                                                    break;
+                                                case "trace":
+                                                    self.emit(self.engineEvents["engineProcess.stream.trace"], j)
+                                                    break;
+                                                default:
+                                                    // case "all" goes here
+                                                    console.log(str) // isnt a log line. v likely an output.stdout/err 
+                                                    break;
+                                            }
+                                        }
+                                    })
+                                } catch (e: any) {
+                                    self.emit(self.engineEvents["engine.error"], { msg: "unable to write engineProcess events into loggerWritable", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+                                }
                             }, 1000)
 
                             next();
@@ -518,11 +540,13 @@ class Engine extends EngineProcessAPI {
                 // start the _keepAliveInterval
                 self.#keepAliveInterval = setInterval(() => { }, 1 << 30);
                 return self
-            } catch (e: any) {
-                self.emit(self.engineEvents["engine.fatal"], { msg: "start failed", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
-                return self
-            }
-        })
+
+            })
+
+        } catch (e: any) {
+            self.emit(self.engineEvents["engine.fatal"], { msg: "start failed", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+            return self
+        }
     }
 
     /**
@@ -540,52 +564,61 @@ class Engine extends EngineProcessAPI {
             force = false
         }
         let self = this
-        self.#traceLog(`stop called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        let caller = getCaller()
+        self.#traceLog(`stop called from: ${caller}`)
 
-        return await self.#engineConstrStartStopMutex.runExclusive(async () => {
-            // if engine is not active, wait for it
-            if (!self.#isActive) {
-                self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before stopping`)
-                try {
-                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
-                } catch (e) {
-                    self.#debugLog("engine isActive=false, skipping stopping")
-                    clearInterval(self.#keepAliveInterval)
-                    return self
+        try {
+            return await self.#engineConstrStartStopMutex.runExclusive(async () => {
+                self.#traceLog(`stop mutex acquired from: ${caller}`)
+                // if engine is not active, wait for it
+                if (!self.#isActive) {
+                    self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before stopping`)
+                    try {
+                        await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
+                    } catch (e) {
+                        self.#debugLog("engine isActive=false, skipping stopping")
+                        clearInterval(self.#keepAliveInterval)
+                        return self
+                    }
                 }
-            }
 
-            // is active at this point
+                // is active at this point
 
-            // remove all streams first
-            self.#debugLog("removing streams before stopping")
-            await self.remove(...Object.values(self.#streamsMap))
+                // remove all streams first
+                self.#debugLog("removing streams before stopping")
+                await self.remove(...Object.values(self.#streamsMap))
 
 
-            if (self.#isLocal) {
-                // remove the engine config file
-                fs.unlinkSync(self.#engineConfigFilePath)
+                if (self.#isLocal) {
+                    // remove the engine config file
+                    fs.unlinkSync(self.#engineConfigFilePath)
 
-                if (force) {
-                    self.#abortController.abort()
-                } else {
-                    // using SIGTERM (or SIGNIT [benthos behaves the same]) instead of abort signal
-                    self.#engineProcess.kill('SIGTERM', {
-                        forceKillAfterTimeout: parseInt(self.#engineConfig.shutdown_timeout, 10) + 1 // 1 second of extra buffer time
-                    })
+                    if (force) {
+                        self.#abortController.abort()
+                    } else {
+                        // using SIGTERM (or SIGNIT [benthos behaves the same]) instead of abort signal
+                        self.#engineProcess.kill('SIGTERM', {
+                            forceKillAfterTimeout: parseInt(self.#engineConfig.shutdown_timeout, 10) + 1 // 1 second of extra buffer time
+                        })
+                    }
                 }
-            }
 
-            // perform regardless of local or not
-            clearInterval(self.#keepAliveInterval)
-            self.emit(self.engineEvents["engine.inactive"], { msg: `stopped successfully` + (reason ? (". reason:" + reason) : ""), time: getISOStringLocalTz() })
-            return self
-        })
+                // perform regardless of local or not
+                clearInterval(self.#keepAliveInterval)
+                self.emit(self.engineEvents["engine.inactive"], { msg: `stopped successfully` + (reason ? (". reason:" + reason) : ""), time: getISOStringLocalTz() })
+                return self
+            })
+        } catch (e: any) {
+            self.emit(self.engineEvents["engine.fatal"], { msg: "stop failed. performing process.exit", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
+            process.exit(1)
+        }
+
     }
 
     async #startMgmtEvents() {
         let self = this
-        self.#traceLog(`_startMgmtEvents called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        let caller = getCaller()
+        self.#traceLog(`_startMgmtEvents called from: ${caller}`)
 
         let shutDownTimer: NodeJS.Timer
         do {
@@ -644,14 +677,12 @@ class Engine extends EngineProcessAPI {
                     })
                     if (resp.status === 503) {
                         // cleanup
-                        self.emit(self.engineEvents["engine.stream.fatal"], { msg: "stream status is not ready", error: formatErrorForEvent(new Error(resp.data || "reason unknown")), stream, time: getISOStringLocalTz() })
+                        self.emit(self.engineEvents["engineProcess.stream.fatal"], { msg: "stream status is not ready", error: formatErrorForEvent(new Error(resp.data || "reason unknown")), stream, time: getISOStringLocalTz() })
                     }
                 }
 
             } catch (e: any) {
                 self.emit(self.engineEvents["engine.error"], { msg: "unable to start mgmt events", error: formatErrorForEvent(e), time: getISOStringLocalTz() })
-                self.stop(e.message)
-                break;
             }
         } while (await sleep(self.#mgmtEventsFreqMs)) //2000
     }
@@ -662,30 +693,38 @@ class Engine extends EngineProcessAPI {
      */
     public async add(...streams: Stream[]): Promise<Engine> {
         let self = this
-        self.#traceLog(`add called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        let caller = getCaller()
+        self.#traceLog(`add called from: ${caller}`)
+        self.#debugLog(`add called for streams: ${streams.map(s => s.streamID)}`)
 
-        return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
-            if (!self.#isActive) {
-                self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before adding`)
-                try {
-                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
-                } catch (e) {
-                    self.#debugLog("engine isActive=false, skipping adding/_apiPostStream")
-                    return self
+        try {
+            return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
+                self.#traceLog(`add mutex acquired from: ${caller}`)
+                if (!self.#isActive) {
+                    self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before adding`)
+                    try {
+                        await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
+                    } catch (e) {
+                        self.#debugLog("engine isActive=false, skipping adding/_apiPostStream")
+                        return self
+                    }
                 }
-            }
 
-            for (let stream of streams) {
-                try {
-                    await self._apiPostStream(stream)
-                    self.#streamsMap[stream.streamID] = stream
-                    this.emit(self.engineEvents["engine.add.stream"], { msg: `stream added to engine`, stream, time: getISOStringLocalTz() })
-                } catch (e: any) {
-                    self.emit(self.engineEvents["engine.error.stream"], { msg: `stream add to engine failed`, error: formatErrorForEvent(e), stream, time: getISOStringLocalTz() })
+                for (let stream of streams) {
+                    try {
+                        await self._apiPostStream(stream)
+                        self.#streamsMap[stream.streamID] = stream
+                        this.emit(self.engineEvents["engine.stream.add"], { msg: `stream added to engine`, stream, time: getISOStringLocalTz() })
+                    } catch (e: any) {
+                        self.emit(self.engineEvents["engine.stream.error"], { msg: `stream add to engine failed`, error: formatErrorForEvent(e), stream, time: getISOStringLocalTz() })
+                    }
                 }
-            }
+                return self
+            })
+        } catch (e: any) {
+            self.emit(self.engineEvents["engine.error"], { msg: `engine unable to add any streams`, error: formatErrorForEvent(e), time: getISOStringLocalTz() })
             return self
-        })
+        }
     }
 
     /**
@@ -695,30 +734,38 @@ class Engine extends EngineProcessAPI {
      */
     public async update(...streams: Stream[]): Promise<Engine> {
         let self = this
-        self.#traceLog(`update called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        let caller = getCaller()
+        self.#traceLog(`update called from: ${caller}`)
+        self.#debugLog(`update called for streams: ${streams.map(s => s.streamID)}`)
 
-        return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
-            if (!self.#isActive) {
-                self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before updating`)
-                try {
-                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
-                } catch (e) {
-                    self.#debugLog("engine isActive=false, skipping update/_apiPutStream")
-                    return self
+        try {
+            return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
+                self.#traceLog(`update mutex acquired from: ${caller}`)
+                if (!self.#isActive) {
+                    self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before updating`)
+                    try {
+                        await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
+                    } catch (e) {
+                        self.#debugLog("engine isActive=false, skipping update/_apiPutStream")
+                        return self
+                    }
                 }
-            }
 
-            for (let stream of streams) {
-                try {
-                    await self._apiPutStream(stream)
-                    self.#streamsMap[stream.streamID] = stream
-                    this.emit(self.engineEvents["engine.update.stream"], { msg: `stream updated to engine`, stream, time: getISOStringLocalTz() })
-                } catch (e: any) {
-                    self.emit(self.engineEvents["engine.error.stream"], { msg: "stream update to engine failed", error: formatErrorForEvent(e), stream, time: getISOStringLocalTz() })
+                for (let stream of streams) {
+                    try {
+                        await self._apiPutStream(stream)
+                        self.#streamsMap[stream.streamID] = stream
+                        this.emit(self.engineEvents["engine.stream.update"], { msg: `stream updated to engine`, stream, time: getISOStringLocalTz() })
+                    } catch (e: any) {
+                        self.emit(self.engineEvents["engine.stream.error"], { msg: "stream update to engine failed", error: formatErrorForEvent(e), stream, time: getISOStringLocalTz() })
+                    }
                 }
-            }
+                return self
+            })
+        } catch (e: any) {
+            self.emit(self.engineEvents["engine.error"], { msg: `engine unable to update any streams`, error: formatErrorForEvent(e), time: getISOStringLocalTz() })
             return self
-        })
+        }
     }
 
     /**
@@ -736,59 +783,69 @@ class Engine extends EngineProcessAPI {
             streams = streamsWWOReason
         }
         let self = this
-        self.#traceLog(`_removeProm called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
-        self.#debugLog(`_removeProm called for streams: ${streams.map(s => s.streamID)}`)
+        let caller = getCaller()
+        self.#traceLog(`remove called from: ${caller}`)
+        self.#debugLog(`remove called for streams: ${streams.map(s => s.streamID)}`)
 
-        return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
-            if (!self.#isActive) {
-                self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before removing`)
-                try {
-                    await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
-                } catch (e) {
-                    self.#debugLog("engine isActive=false, skipping removing/_apiDeleteStream")
-                    return self
+        try {
+            return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
+                self.#traceLog(`remove mutex acquired from: ${caller}`)
+                if (!self.#isActive) {
+                    self.#debugLog(`waiting for event=engine.active for ${self.waitForActiveEventMs} seconds before removing`)
+                    try {
+                        await self.waitFor(self.engineEvents["engine.active"], self.waitForActiveEventMs)
+                    } catch (e) {
+                        self.#debugLog("engine isActive=false, skipping removing/_apiDeleteStream")
+                        return self
+                    }
                 }
-            }
 
-            if (streams.length === 0) {
-                self.#debugLog("no stream to remove")
-            }
-            for (let stream of streams) {
-                try {
-                    if (!self.#streamsMap[stream.streamID]) {
-                        self.#debugLog(`stream [ID=${stream.streamID}] not present in engine streamMap. possibly already removed`)
-                        continue;
-                    }
-                    await self._apiDeleteStream(stream)
-
-                    // if hasOutProc close it, to clean the sock
-                    // i.e. close actually removes the .sock file
-                    if (stream.hasOutPort) {
-                        stream.outPort.close()
-                    }
-                    if (stream.hasInPort) {
-                        stream.inPort.close()
-                    }
-
-                    delete self.#streamsMap[stream.streamID]
-                    self.emit(self.engineEvents["engine.remove.stream"], { msg: `stream removed from engine ${reason ? ("reason:" + reason) : ""}`, stream, time: getISOStringLocalTz() })
-                } catch (e: any) {
-                    self.emit(self.engineEvents["engine.error.stream"], { msg: "stream remove from engine failed", error: formatErrorForEvent(e), stream, time: getISOStringLocalTz() })
+                if (streams.length === 0) {
+                    self.#debugLog("no stream to remove")
                 }
-            }
+                for (let stream of streams) {
+                    try {
+                        if (!self.#streamsMap[stream.streamID]) {
+                            self.#debugLog(`stream [ID=${stream.streamID}] not present in engine streamMap. possibly already removed`)
+                            continue;
+                        }
+                        await self._apiDeleteStream(stream)
 
+                        // if hasOutProc close it, to clean the sock
+                        // i.e. close actually removes the .sock file
+                        if (stream.hasOutPort) {
+                            stream.outPort.close()
+                        }
+                        if (stream.hasInPort) {
+                            stream.inPort.close()
+                        }
+
+                        delete self.#streamsMap[stream.streamID]
+                        self.emit(self.engineEvents["engine.stream.remove"], { msg: `stream removed from engine ${reason ? ("reason:" + reason) : ""}`, stream, time: getISOStringLocalTz() })
+                    } catch (e: any) {
+                        self.emit(self.engineEvents["engine.stream.error"], { msg: "stream remove from engine failed", error: formatErrorForEvent(e), stream, time: getISOStringLocalTz() })
+                    }
+                }
+
+                return self
+            })
+        } catch (e: any) {
+            self.emit(self.engineEvents["engine.error"], { msg: `engine unable to update any streams`, error: formatErrorForEvent(e), time: getISOStringLocalTz() })
             return self
-        })
+        }
     }
 
     #writeToEngineConfigFilePath() {
         let self = this
-        self.#traceLog(`_writeToEngineConfigFilePath called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+        let caller = getCaller()
+        self.#traceLog(`writeToEngineConfigFilePath called from: ${caller}`)
+
         try {
             fs.writeFileSync(this.#engineConfigFilePath, JSON.stringify(this.#engineConfig))
             self.#debugLog(`engine config successfully written to: ${this.#engineConfigFilePath}`)
-        } catch (err) {
-            throw new Error(`failed to write engine config into ${this.#engineConfigFilePath}: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
+        } catch (e) {
+            let msg = `failed to write engine config into ${this.#engineConfigFilePath}}`
+            self.emit(self.engineEvents["engine.fatal"], { msg, error: formatErrorForEvent(e), time: getISOStringLocalTz() })
         }
     }
 
@@ -894,32 +951,37 @@ let streamErrorCounter: { [streamID: string]: any } = {} // streamID to count
 /**
  * The default event hander prints all events on the console/stdout. Additionally, it:
  * - stops the engine on receiving an "engine.fatal" event
- * - stops the stream on receiving an "engine.stream.error" event 5 times
+ * - stops the stream on receiving an "engineProcess.stream.error" event 5 times
  * @param this Engine
  * @param eventName the name of the event
  * @param eventObj the event object of type EventObj containing event information
  */
 function defaultEngineEventHandler(this: Engine, eventName: string | string[], eventObj: EventObj) {
     let self = this
-    if (eventName === "engine.fatal") {
-        console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
-        self.stop()
-    } else if (eventName === "engine.stream.error") {
-        let streamID: string
-        if (eventObj.stream && eventObj.stream.streamID) {
-            streamID = eventObj.stream.streamID
+
+    try {
+        if (eventName === "engine.fatal") {
+            console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+            self.stop()
+        } else if (eventName === "engineProcess.stream.error") {
+            let streamID: string
+            if (eventObj.stream && eventObj.stream.streamID) {
+                streamID = eventObj.stream.streamID
+            } else {
+                streamID = "unknown"
+            }
+            console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+            streamErrorCounter[streamID] = streamErrorCounter[streamID] || 0
+            streamErrorCounter[streamID] = streamErrorCounter[streamID] + 1
+            if (streamErrorCounter[streamID] === 5 && eventObj.stream) {
+                // remove the stream if error received 5 times
+                self.remove(eventObj.stream)
+            }
         } else {
-            streamID = "unknown"
+            console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
         }
-        console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
-        streamErrorCounter[streamID] = streamErrorCounter[streamID] || 0
-        streamErrorCounter[streamID] = streamErrorCounter[streamID] + 1
-        if (streamErrorCounter[streamID] === 5 && eventObj.stream) {
-            // remove the stream if error received 5 times
-            self.remove(eventObj.stream)
-        }
-    } else {
-        console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+    } catch (e: any) {
+        self.emit(self.engineEvents["engine.error"], { msg: `defaultEngineEventHandler unabel to handle events`, error: formatErrorForEvent(e), time: getISOStringLocalTz() })
     }
 }
 

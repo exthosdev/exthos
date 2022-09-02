@@ -93,7 +93,7 @@
 </a>
 <p>At the core of exthos is the <code>engine</code> that is responsible for running the <code>engineProcess</code>. The <code>engineProcess</code> is esentially a child process that runs benthos (in streams mode).
 <code>streams</code> represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: <code>new Stream(...)</code>. During development, these streams can be run in standalone mode i.e. without an engine using: <code>stream.start()</code>. However, one must not run stream in standalone mode in production. The preferred way is to add stream objects into the engine instance at will using: <code>engine.add(stream)</code>. The streams can be updated or removed from the engine as well using: <code>engine.update(), engine.remove()</code>.</p>
-<p>The engine produces a <em>lot of events</em> that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using <code>engine.stream.error</code> event.</p>
+<p>The engine produces a <em>lot of events</em> that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using <code>engineProcess.stream.error</code> event.</p>
 <ul>
 <li>You could provide your own event handling functions using any of the following: <code>engine.on(...)</code> or <code>engine.onAny(...)</code>. Refer to the documentation of the package named EventEmitter2 for details.</li>
 <li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler()</code></li>

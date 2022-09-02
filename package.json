@@ -9,7 +9,7 @@
   },
   "homepage": "https://github.com/exthosdev/exthos.git",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "stream processing in nodejs using the power of golang",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,9 +21,9 @@
     "publishit": "npm publish",
     "dogit": "npm run sitebuildit && git add . && git commit -F .commitmsg.md && git push",
     "packit": "npm pack --pack-destination ./_tars",
-    "bumpmajor": "npm version --no-git-tag-version major",
-    "bumpminor": "npm version --no-git-tag-version minor",
-    "bumppatch": "npm version --no-git-tag-version patch",
+    "bumpmajorit": "npm version --no-git-tag-version major",
+    "bumpminorit": "npm version --no-git-tag-version minor",
+    "bumppatchit": "npm version --no-git-tag-version patch",
     "sitebuildit": "typedoc src/ --media ./media",
     "siteserveit": "http-server ./docs"
   },
@@ -32,7 +32,9 @@
     "integration",
     "streaming",
     "node",
-    "golang"
+    "golang",
+    "benthos",
+    "stream"
   ],
   "author": "ossmht",
   "license": "MIT",

@@ -11,7 +11,7 @@ describe("engine start stop", () => {
             throw new Error((eventObj as any)["msg"] || "engine.fatal occured, but msg was absent in the eventObj.msg");
         }
     })
-    engine.setEngineConfigOptions({ logger: { level: "NONE", format: "json", } })
+    engine.updateEngineConfigOptions({ logger: { level: "NONE", format: "json", } })
 
     test("start and stop engine when benthos exe exists", async () => {
         expect.assertions(2)

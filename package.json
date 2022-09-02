@@ -57,6 +57,7 @@
     "eventemitter2": "^6.4.6",
     "execa": "^6.1.0",
     "lodash.merge": "^4.6.2",
-    "nanomsg": "^4.2.1"
+    "nanomsg": "^4.2.1",
+    "supports-color": "^9.2.2"
   }
 }

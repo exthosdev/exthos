@@ -14,7 +14,7 @@
 <a href="#exthos" id="exthos" style="color: inherit; text-decoration: none;">
   <h1>exthos</h1>
 </a>
-<p><img src="/media/logo.gif" alt="logo"></p>
+<p><img src="/media/logo_exthos.gif" alt="logo"></p>
 <blockquote>
 <p>stream processing in NodeJS using the power of Golang</p>
 </blockquote>
@@ -54,6 +54,7 @@
 <li><a href="#usage">Usage</a></li>
 <li><a href="#using-high-level-apis-fromviato">Using high level APIs: from/via/to</a></li>
 <li><a href="#othernon-functional-features">Other/non-functional features</a><ul>
+<li><a href="#labels">Labels</a></li>
 <li><a href="#error-handling">Error handling</a></li>
 <li><a href="#logging">Logging</a></li>
 <li><a href="#events">Events</a></li>
@@ -181,12 +182,26 @@ Each message contains three parts:</p>
   <h2>Other/non-functional features</h2>
 </a>
 
+<a href="#labels" id="labels" style="color: inherit; text-decoration: none;">
+  <h3>Labels</h3>
+</a>
+<blockquote>
+<p>this secions covers <code>llapis</code> only</p>
+</blockquote>
+<p>Labels can be optionally assigned to all components. They aid in debugging and tracing.
+The labels will be sanitised by the stream instace to follow the following rules:</p>
+<ul>
+<li>should match the regular expression /^[a-z0-9_]+$/</li>
+<li>must not start with an underscore</li>
+</ul>
+
 <a href="#error-handling" id="error-handling" style="color: inherit; text-decoration: none;">
   <h3>Error handling</h3>
 </a>
 <blockquote>
 <p>this section covers <code>hlapis</code> only</p>
 </blockquote>
+<p><code>exthos</code> makes best attempt at swallowing any errors generated</p>
 <p>There are two source of errors we must handle:</p>
 <ol>
 <li>errors in JS land<ol>
@@ -195,7 +210,7 @@ Each message contains three parts:</p>
 </ol>
 </li>
 <li>errors in Golang land<ol>
-<li>For Golang land, errors must be handled using the component configurations. A good starting point is to go through <a href="https://www.benthos.dev/docs/configuration/error_handling/">this link</a></li>
+<li>For Golang land, stream and message related errors must be handled using the component configurations, which are then handed over to benthos. As a rule of thumb, when an error occurs on a message, the error property of the message is marked with the error description and the message moves to the next component of the stream. To understand error handling please go through <a href="https://www.benthos.dev/docs/configuration/error_handling/">this link</a></li>
 <li>Checkout the examples <a href="TODO">here_TODO</a></li>
 </ol>
 </li>

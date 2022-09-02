@@ -1,17 +1,13 @@
 
 Todo:
 - work on exthos.config.js
-- implement stopAfter hlapi (see README)
-- take a look at defaults. are they even working? see sanitized stream config debug output
-- remove log_level.js
+
 - some events like engine.remove.stream, engine.active do not contain important keys like `"time":"2022-08-11T16:23:43+10:00", "@pwrdby":"exthos", "level":"???"`
 - mark private class elements with #, like we did in stream.ts
 - expose metrics
-- processors inside input is failing with error:  Object.keys(defaultInputValues[ipo]).forEach(k => {
-                                                    TypeError: Cannot convert undefined or null to object
+
 - ability to hide **** any credentials
-- how to send data to a stream running on the engine? idea: use tcp for comms (createConnection and createServer). replace stdin/out with tcp as well for standalone?
-- autoinstall benthos if doesnt 
+
 - give default labels to components if not provided by client-user. are labels shown in metrics?
 
 

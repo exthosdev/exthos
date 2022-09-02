@@ -155,4 +155,17 @@ function getISOStringLocalTz(date: Date = new Date()) {
 
 }
 
-export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValueForKey, proxyPromise, getISOStringLocalTz }
+function getCaller() {
+    return ((new Error().stack as any).split("at ")[3]).trim()
+}
+
+function formatErrorForEvent(e: any) {
+    // return `${e.code ? e.code + " ": ""} ${e.message ? e.message : ""}`
+    let toReturn = {}
+    Object.getOwnPropertyNames(e).forEach(p => {
+        (toReturn as any)[p] = e[p]
+    })
+    return toReturn
+}
+
+export { checkExeExists, standardizeAxiosErrors, sleep, Deferred, replaceKeys, replaceValueForKey, proxyPromise, getISOStringLocalTz, getCaller, formatErrorForEvent }

@@ -1,12 +1,12 @@
 # exthos
 
-![logo](/media/logo.gif)
+![logo](/media/logo_exthos.gif)
 
 > stream processing in NodeJS using the power of Golang
 
 ## Website
 
-[https://exthos/](https://exthosdev.github.io/exthos/)
+[exthos](https://exthosdev.github.io/exthos/)
 
 ## Table of Contents
 
@@ -33,6 +33,8 @@
     - [Logging](#logging)
     - [Events](#events)
     - [Metrics](#metrics)
+    - [Tracing and Telemetry](#tracing-and-telemetry)
+  - [Acknowledgement](#acknowledgement)
 
 ---
 
@@ -61,12 +63,6 @@ exthos has two set of APIs:
 
 At the core of exthos is the `engine` that is responsible for running the `engineProcess`. The `engineProcess` is esentially a child process that runs benthos (in streams mode).
 `streams` represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: `new Stream(...)`. During development, these streams can be run in standalone mode i.e. without an engine using: `stream.start()`. However, one must not run stream in standalone mode in production. The preferred way is to add stream objects into the engine instance at will using: `engine.add(stream)`. The streams can be updated or removed from the engine as well using: `engine.update(), engine.remove()`.
-
-The engine produces a *lot of events* that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using `engine.stream.error` event.
-
-- You could provide your own event handling functions using any of the following: `engine.on(...)` or `engine.onAny(...)`. Refer to the documentation of the package named EventEmitter2 for details.
-- Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler()`
-- Each event emits the `eventObj` that takes the form of `{ stream?: Stream, msg: string }` i.e. it always contains the `msg` string value and may contain the `stream` object if the event was generated in the context of a stream.
 
 ### Overview: High level APIs
 
@@ -166,14 +162,15 @@ The labels will be sanitised by the stream instace to follow the following rules
 
 > this section covers `hlapis` only
 
+`exthos` makes best attempt at swallowing any errors generated
+
 There are two source of errors we must handle:
 
 1. errors in JS land
-   1. For JS land, errors can be handled using `try/catch/finally` or `.then().catch().finally()`
+   1. For JS land, errors can be handled using `try(){}catch(){}finally(){}` or `<Promise>.then().catch().finally()`
    2. Checkout the examples [here](https://github.com/exthosdev/exthos/blob/main/examples/hlapis/errorHandling.js)
 2. errors in Golang land
-   1. For Golang land, errors must be handled using the component configurations. A good starting point is to go through [this link](https://www.benthos.dev/docs/configuration/error_handling/)
-   2. Checkout the examples [here_TODO](TODO)
+   1. For Golang land, stream and message related errors must be handled using the component configurations, which are then handed over to benthos. As a rule of thumb, when an error occurs on a message, the error property of the message is marked with the error description and the message moves to the next component of the stream. To understand error handling please go through [this link](https://www.benthos.dev/docs/configuration/error_handling/)
 
 ### Logging
 
@@ -208,8 +205,28 @@ The following namespaces are available within `exthos`:
 
 ### Events
 
-TODO
+`exthos` emits a lot of events. These can be used to trigger custom actions (aka handlers) in JS-land e.g. sending an alert notification on an `error` type event, or stopping the engine on a `fatal` type event, etc.
+
+- You could provide your own event handling functions (actions/handlers) using any of the following. For even more options on how to handle events refer to [EventEmitter2](https://github.com/hij1nx/EventEmitter2#readme) documentation
+  - `engine.on(...)` 
+  - `engine.onAny(...)`
+- Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler()`
+- Each event emits the `eventObj` that takes the form of `{ stream?: Stream, msg: string }` i.e. it always contains the `msg` string value and may contain the `stream` object if the event was generated in the context of a stream.
 
 ### Metrics
 
 Coming soon.
+
+### Tracing and Telemetry
+
+Coming soon.
+
+## Acknowledgement
+
+While we thank all the projects that exthos depends on, we would like to show special gratitude towards the following projects:
+
+- [benthos](https://github.com/benthosdev/benthos)
+- [nanomsg](https://github.com/nickdesaulniers/node-nanomsg)
+- [eventemitter2](https://github.com/hij1nx/EventEmitter2)
+- [debug](https://github.com/debug-js/debug)
+- [async-mutex](https://github.com/DirtyHairy/async-mutex)

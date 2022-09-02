@@ -5,7 +5,9 @@ import { from as _from } from "./route.js";
 let from = (...inputs: [TInput, ...TInput[]]) => {
     return _from(engine, ...inputs)
 }
-let engine = new Engine()
+
+let engine: Engine = new Engine()
+
 export { from, engine }
 
 // quick testing

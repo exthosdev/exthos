@@ -31,6 +31,10 @@ class Stream {
     public readonly streamID: string = randomUUID()
     // public active uptime uptime_str TODO. these should be part of the stream
 
+    get streamConfigFilePath(): string {
+        return this.#streamConfigFilePath
+    }
+
     get streamConfig(): TStreamConfig {
         return this.#streamConfig
     }
@@ -69,6 +73,8 @@ class Stream {
                 throw new Error("benthos executable not found. Kindly install benthos and add it to env path.");
             }
             if (this.#status !== "started") {
+                // write the stream config file
+                this._writeToStreamConfigFilePath()
                 this.#childProcess = execaCommand(`benthos -s logger.format=json -s logger.static_fields.@service=exthos -s http.enabled=false -c ${this.#streamConfigFilePath}`,
                     {
                         signal: this.#abortController.signal,
@@ -109,12 +115,17 @@ class Stream {
         if (this.#status !== "stopped") {
             this.#abortController.abort()
             // if hasOutProc close it, to clean the sock
+            // i.e. close actually removes the .sock file
             if (this.hasOutPort) {
                 this.outPort.close()
             }
             if (this.hasInPort) {
                 this.inPort.close()
             }
+
+            // remove the stream config file
+            fs.unlinkSync(this.#streamConfigFilePath)
+
             this.#status = "stopped"
         }
     }
@@ -316,59 +327,16 @@ class Stream {
                 return toReturn
             }
         })
+    }
 
-        // // apply defaults to input
-        // Object.keys(this.#streamConfig.input).filter(ipo => ipo !== "label").forEach(ipo => {   // ipo=input, processor or output
-        //     Object.keys((defaultInputValues as any)[ipo]).forEach(k => {
-        //         if (!Object.keys((this.#streamConfig.input as any)[ipo]).includes(k)) {
-        //             // if a key e.g. codec isnt found then 'assign'
-        //             (this.#streamConfig.input as any)[ipo][k] = (defaultInputValues as any)[ipo][k]
-        //         }
-        //     })
-        // })
-
-        // apply defaults to output
-        // Object.keys(this.#streamConfig.output).filter(ipo => ipo !== "label").forEach(ipo => {
-        //     Object.keys((defaultOutputValues as any)[ipo]).forEach(k => {
-        //         if (!Object.keys((this.#streamConfig.output as any)[ipo]).includes(k)) {
-        //             // if a key e.g. codec isnt found then 'assign'
-        //             (this.#streamConfig.output as any)[ipo][k] = (defaultOutputValues as any)[ipo][k]
-        //         }
-        //     })
-        // })
-
-        // // apply defaults to input.processors
-        // this.#streamConfig.input?.processors?.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
-        //     Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
-        //         if (!Object.keys((processor as any)[ipo]).includes(k)) {
-        //             // if a key e.g. codec isnt found then 'assign'
-        //             (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
-        //         }
-        //     })
-        // }))
-        // // apply defaults to pipeline.processors
-        // this.#streamConfig.pipeline?.processors.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
-        //     Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
-        //         if (!Object.keys((processor as any)[ipo]).includes(k)) {
-        //             // if a key e.g. codec isnt found then 'assign'
-        //             (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
-        //         }
-        //     })
-        // }))
-        // // apply defaults to output.processors
-        // this.#streamConfig.output?.processors?.forEach(processor => Object.keys(processor).filter(ipo => ipo !== "label").forEach(ipo => {
-        //     Object.keys((defaultProcessorValues as any)[ipo]).forEach(k => {
-        //         if (!Object.keys((processor as any)[ipo]).includes(k)) {
-        //             // if a key e.g. codec isnt found then 'assign'
-        //             (processor as any)[ipo][k] = (defaultProcessorValues as any)[ipo][k]
-        //         }
-        //     })
-        // }))
-
+    private _writeToStreamConfigFilePath() {
+        let self = this
+        // self._traceLog(`_writeToStreamConfigFilePath called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
         try {
             fs.writeFileSync(this.#streamConfigFilePath, JSON.stringify(this.#streamConfig))
+            self.#debugLog(`engine config successfully written to: ${this.#streamConfigFilePath}`)
         } catch (err) {
-            throw new Error(`failed to write config into tmp: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
+            throw new Error(`failed to write stream config into ${this.#streamConfigFilePath}: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
         }
     }
 }

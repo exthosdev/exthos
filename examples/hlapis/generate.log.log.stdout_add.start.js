@@ -1,7 +1,7 @@
 import { from, engine } from "../../dist/index.js"
 
 engine.useDefaultEventHandler()
-engine.setEngineConfigOptions({ logger: { level: "ALL", format: "json" } })
+engine.updateEngineConfigOptions({ logger: { level: "ALL", format: "json" } })
 
 try {
     let route = from({ generate: { mapping: 'root = count("gen")', count: 1 } })

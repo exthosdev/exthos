@@ -1,4 +1,4 @@
-import { execaCommand, ExecaChildProcess } from 'execa';
+// import { execaCommand, ExecaChildProcess } from 'execa';
 import { defaultInputValues } from "../defaults/defaultInputValues.js";
 import { defaultOutputValues } from "../defaults/defaultOutputValues.js";
 import * as path from "path";
@@ -18,15 +18,15 @@ import { TProcessor } from '../types/processors.js';
 class Stream {
     readonly #streamConfigFilePath: string = path.join(tmpdir(), "exthos_stream_conf_" + randomUUID() + ".json")
     #streamConfig: TStreamConfig
-    #childProcess!: ExecaChildProcess<string>
-    #abortController = new AbortController();
-    hasInPort: boolean = false
-    hasOutPort: boolean = false
+    // #childProcess!: ExecaChildProcess<string>
+    // #abortController = new AbortController();
+    hasInport: boolean = false
+    hasOutport: boolean = false
 
     #debugLog = debug("exthos").extend("stream:debugLog")
-    #status: "stopped" | "started" = "stopped"
-    #inPort!: nanomsg.Socket // internal.Writable
-    #outPort!: nanomsg.Socket // internal.Readable
+    // #status: "stopped" | "started" = "stopped"
+    #inport!: nanomsg.Socket // internal.Writable
+    #outport!: nanomsg.Socket // internal.Readable
 
     public readonly streamID: string = randomUUID()
     // public active uptime uptime_str TODO. these should be part of the stream
@@ -40,97 +40,114 @@ class Stream {
     }
     set streamConfig(s: TStreamConfig) {
         this.#streamConfig = s
-        this._sanitizeStreamConfigNWriteToStreamConfigFilePath()
+        this.#sanitizeStreamConfig()
     }
 
-    get inPort() {
-        return this.#inPort
+    get inport() {
+        return this.#inport
     }
 
-    get outPort() {
-        return this.#outPort
+    get outport() {
+        return this.#outport
     }
 
-    constructor(streamConfig: TStreamConfig, autostart?: boolean) {
+    createInport() {
+        let self = this
+        if (!this.#inport) {
+            // create inport on stream in js-land if not already created
+            this.#inport = nanomsg.socket('push')
+            this.#inport.bind(`ipc:///tmp/${self.streamID}.inport.sock`)
+        }
+    }
+
+    createOutport() {
+        let self = this
+        if (!this.#outport) {
+            // create outport on stream in js-land if not already created
+            this.#outport = nanomsg.socket('pull')
+            this.#outport.bind(`ipc:///tmp/${self.streamID}.outport.sock`)
+        }
+    }
+
+    constructor(streamConfig: TStreamConfig) {
         this.#streamConfig = streamConfig
 
-        if (autostart === undefined) {
-            autostart = false
-        }
-
         this.#debugLog("received streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
-        this._sanitizeStreamConfigNWriteToStreamConfigFilePath()
+        this.#sanitizeStreamConfig()
         this.#debugLog("sanitized streamConfig:\n", JSON.stringify(this.#streamConfig, null, 0))
-
-        if (autostart) {
-            this.start()
-        }
     }
 
-    async start() {
-        try {
-            if (!utils.checkExeExists()) {
-                throw new Error("benthos executable not found. Kindly install benthos and add it to env path.");
-            }
-            if (this.#status !== "started") {
-                // write the stream config file
-                this._writeToStreamConfigFilePath()
-                this.#childProcess = execaCommand(`benthos -s logger.format=json -s logger.static_fields.@service=exthos -s http.enabled=false -c ${this.#streamConfigFilePath}`,
-                    {
-                        signal: this.#abortController.signal,
-                        buffer: false,
-                        detached: true
-                    }
-                );
+    // async start() {
+    //     try {
+    //         if (!utils.checkExeExists()) {
+    //             throw new Error("benthos executable not found. Kindly install benthos and add it to env path.");
+    //         }
+    //         if (this.#status !== "started") {
+    //             // write the stream config file
+    //             this._writeToStreamConfigFilePath()
+    //             this.#childProcess = execaCommand(`benthos -s logger.format=json -s logger.static_fields.@service=exthos -s http.enabled=false -c ${this.#streamConfigFilePath}`,
+    //                 {
+    //                     signal: this.#abortController.signal,
+    //                     buffer: false,
+    //                     detached: true
+    //                 }
+    //             );
 
-                this.#childProcess.on("spawn", () => {
-                    this.#debugLog("stream started successfuly")
-                    this.#status = "started"
-                })
+    //             this.#childProcess.on("spawn", () => {
+    //                 this.#debugLog("stream started successfuly")
+    //                 this.#status = "started"
+    //             })
 
-                process.on('SIGINT', () => { this.stop() });
-                process.stdin.pipe(this.#childProcess.stdin!)
-                this.#childProcess.stdout?.pipe(process.stdout)
-                this.#childProcess.stderr?.pipe(process.stderr)
+    //             process.on('SIGINT', () => { this.stop() });
+    //             process.stdin.pipe(this.#childProcess.stdin!)
+    //             this.#childProcess.stdout?.pipe(process.stdout)
+    //             this.#childProcess.stderr?.pipe(process.stderr)
 
-                await this.#childProcess
+    //             if (this.hasInport) {
+    //                 this.createInport()
+    //             }
+    //             if (this.hasOutport) {
+    //                 this.createOutport()
+    //             }
 
-                this.stop() // for cleanup
-                this.#debugLog("stream stopped (completed) successfully")
-            }
-        } catch (err: any) {
-            this.#status = "stopped"
+    //             await this.#childProcess
 
-            if (err.killed && err.isCanceled) {
-                this.#debugLog("stream (force) stopped successfully")      // abort was used
-            } else if (err.all) {
-                throw new Error(`stream failed: ${err.all}`)    // errors from the childProcess
-            } else {
-                throw err                                       // any other errors
-            }
-        }
-    }
+    //             this.stop() // for cleanup
+    //             this.#debugLog("stream stopped (completed) successfully")
+    //         }
+    //     } catch (err: any) {
+    //         this.#status = "stopped"
 
-    stop() {
-        if (this.#status !== "stopped") {
-            this.#abortController.abort()
-            // if hasOutProc close it, to clean the sock
-            // i.e. close actually removes the .sock file
-            if (this.hasOutPort) {
-                this.outPort.close()
-            }
-            if (this.hasInPort) {
-                this.inPort.close()
-            }
+    //         if (err.killed && err.isCanceled) {
+    //             this.#debugLog("stream (force) stopped successfully")      // abort was used
+    //         } else if (err.all) {
+    //             throw new Error(`stream failed: ${err.all}`)    // errors from the childProcess
+    //         } else {
+    //             throw err                                       // any other errors
+    //         }
+    //     }
+    // }
 
-            // remove the stream config file
-            fs.unlinkSync(this.#streamConfigFilePath)
+    // async stop() {
+    //     if (this.#status !== "stopped") {
+    //         this.#abortController.abort()
+    //         // if hasOutProc close it, to clean the sock
+    //         // i.e. close actually removes the .sock file
+    //         if (this.hasOutport) {
+    //             this.outport.close()
+    //         }
+    //         if (this.hasInport) {
+    //             this.inport.close()
+    //         }
 
-            this.#status = "stopped"
-        }
-    }
+    //         // remove the stream config file
+    //         fs.unlinkSync(this.#streamConfigFilePath)
 
-    private _sanitizeStreamConfigNWriteToStreamConfigFilePath() {
+    //         this.#status = "stopped"
+    //     }
+    // }
+
+    #sanitizeStreamConfig() {
         let self = this
 
         // TODO: use replaceKeys and replaceValueForKey for TJavascript when we workt to enhance it
@@ -172,7 +189,7 @@ class Stream {
                 }
 
                 (this.#streamConfig.pipeline?.processors as any)[processorIdx] = {
-                    label: (this.#streamConfig.pipeline?.processors as any)[processorIdx]["label"],
+                    label: (this.#streamConfig.pipeline?.processors as any)[processorIdx]["label"] || "",
                     branch: {
                         request_map: `root = {}
                             root.content = this.catch(content())
@@ -256,21 +273,11 @@ class Stream {
         // covert direct to inproc
         utils.replaceKeys(this.#streamConfig, {
             "inport": () => {
-                self.hasInPort = true;
-                if (!this.#inPort) {
-                    // create inPort on stream in js-land if not already created
-                    this.#inPort = nanomsg.socket('push')
-                    this.#inPort.bind(`ipc:///tmp/${self.streamID}.inport.sock`)
-                }
+                self.hasInport = true;
                 return "nanomsg"
             },
             "outport": () => {
-                self.hasOutPort = true;
-                if (!this.#outPort) {
-                    // create outPort on stream in js-land if not already created
-                    this.#outPort = nanomsg.socket('pull')
-                    this.#outPort.bind(`ipc:///tmp/${self.streamID}.outport.sock`)
-                }
+                self.hasOutport = true;
                 return "nanomsg"
             },
             "direct": () => { return "inproc" }
@@ -329,16 +336,16 @@ class Stream {
         })
     }
 
-    private _writeToStreamConfigFilePath() {
-        let self = this
-        // self._traceLog(`_writeToStreamConfigFilePath called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
-        try {
-            fs.writeFileSync(this.#streamConfigFilePath, JSON.stringify(this.#streamConfig))
-            self.#debugLog(`engine config successfully written to: ${this.#streamConfigFilePath}`)
-        } catch (err) {
-            throw new Error(`failed to write stream config into ${this.#streamConfigFilePath}: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
-        }
-    }
+    // private _writeToStreamConfigFilePath() {
+    //     let self = this
+    //     // self._traceLog(`_writeToStreamConfigFilePath called from: ${((new Error().stack as any).split("at ")[2]).trim()}`)
+    //     try {
+    //         fs.writeFileSync(this.#streamConfigFilePath, JSON.stringify(this.#streamConfig))
+    //         self.#debugLog(`engine config successfully written to: ${this.#streamConfigFilePath}`)
+    //     } catch (err) {
+    //         throw new Error(`failed to write stream config into ${this.#streamConfigFilePath}: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}`)
+    //     }
+    // }
 }
 
 export { Stream }

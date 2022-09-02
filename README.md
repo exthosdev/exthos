@@ -1,6 +1,6 @@
 # exthos
 
-![logo](/media/logo_exthos.gif)
+![logo](https://raw.githubusercontent.com/exthosdev/exthos/main/docs/media/logo_exthos.gif)
 
 > stream processing in NodeJS using the power of Golang
 
@@ -158,7 +158,7 @@ from({ generate: { mapping: 'root = count("gen")', count: 2 } }).to({ stdout: {}
 // no need to specify stop explicitly here as the route will stop after 2 messages are processed
 ```
 
-For more examples refer to: [examples dir](/examples/hlapis/README.md)
+For more examples refer to: [examples dir]([/examples/hlapis/README.md](https://github.com/exthosdev/exthos/tree/main/examples/hlapis))
 
 ## Other/non-functional features
 

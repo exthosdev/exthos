@@ -14,7 +14,7 @@
 <a href="#exthos" id="exthos" style="color: inherit; text-decoration: none;">
   <h1>exthos</h1>
 </a>
-<p><img src="/media/logo_exthos.gif" alt="logo"></p>
+<p><img src="https://raw.githubusercontent.com/exthosdev/exthos/main/docs/media/logo_exthos.gif" alt="logo"></p>
 <blockquote>
 <p>stream processing in NodeJS using the power of Golang</p>
 </blockquote>
@@ -22,7 +22,7 @@
 <a href="#website" id="website" style="color: inherit; text-decoration: none;">
   <h2>Website</h2>
 </a>
-<p><a href="https://exthosdev.github.io/exthos/">https://exthos/</a></p>
+<p><a href="https://exthosdev.github.io/exthos/">exthos</a></p>
 
 <a href="#table-of-contents" id="table-of-contents" style="color: inherit; text-decoration: none;">
   <h2>Table of Contents</h2>
@@ -35,7 +35,8 @@
 </li>
 <li><a href="#theory">Theory</a><ul>
 <li><a href="#motivation">Motivation</a></li>
-<li><a href="#how-exthos-works">How exthos works</a><ul>
+<li><a href="#how-exthos-works">How exthos works</a></li>
+<li><a href="#how-to-use-exthos">How to use exthos</a><ul>
 <li><a href="#overview-low-level-apis">Overview: Low level APIs</a></li>
 <li><a href="#overview-high-level-apis">Overview: High level APIs</a></li>
 </ul>
@@ -59,10 +60,14 @@
 <li><a href="#logging">Logging</a></li>
 <li><a href="#events">Events</a></li>
 <li><a href="#metrics">Metrics</a></li>
+<li><a href="#tracing-and-telemetry">Tracing and Telemetry</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a href="#project-status">Project status</a></li>
+<li><a href="#compatability--support">Compatability &amp; Support</a></li>
+<li><a href="#acknowledgement">Acknowledgement</a></li>
 </ul>
 <hr>
 
@@ -76,10 +81,23 @@
 <p><strong><code>exthos</code></strong> brings together <code>javascript</code> for its ubiquity and ease of use and <code>golang</code> for its high performance nature to solve <em><code>stream processing problem</code></em>.</p>
 <p>javascript is the most common programming language (source: stackoverflow). The popularity seems to stem from the fact that is it both light weight and easy to integrate with other frameworks/languages. However, it is just not made for heavy compute, and stream processing often requires that. On the other hand, golang&#39;s speed, simplicity and memory efficiency pegs it as a great candidate for compute heavy workloads.</p>
 <p>exthos attempts to bring the two together to provide a streaming processing engine with intuitive APIs - heavily inspired by the Apache Camel project.</p>
-<p>Acknowledgement: exthos makes heavy use of benthos, which is an amazing stream processing package written in golang. While benthos promotes file based configuration, exthos promotes the use of Integration DSL within Javascript.</p>
+<p>javascript with typescript provides a solid foundation for building a Domain Specific Language (DSL). exthos attempts to bring streaming/integration DSL to work with otherwise a configuration based stream engine called benthos.</p>
 
 <a href="#how-exthos-works" id="how-exthos-works" style="color: inherit; text-decoration: none;">
   <h2>How exthos works</h2>
+</a>
+<p><code>exthos</code> has two modes of operations:</p>
+<ul>
+<li>local <code>isLocal=true</code>: In this mode, the engine takes on the responsibility of managning the engineProcess itself</li>
+<li>remote <code>isLocal=false</code>: In this mode, the engine communicates with a remote engineProcess over HTTP</li>
+</ul>
+<blockquote>
+<p>The default mode is <code>isLocal=true</code></p>
+</blockquote>
+<p>The remote mode can be used for deploying into remote benthos processes, and in the future will also be used to define the <code>exthos deployment framework</code></p>
+
+<a href="#how-to-use-exthos" id="how-to-use-exthos" style="color: inherit; text-decoration: none;">
+  <h2>How to use exthos</h2>
 </a>
 <p>exthos has two set of APIs:</p>
 <ul>
@@ -92,13 +110,7 @@
   <h3>Overview: Low level APIs</h3>
 </a>
 <p>At the core of exthos is the <code>engine</code> that is responsible for running the <code>engineProcess</code>. The <code>engineProcess</code> is esentially a child process that runs benthos (in streams mode).
-<code>streams</code> represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: <code>new Stream(...)</code>. During development, these streams can be run in standalone mode i.e. without an engine using: <code>stream.start()</code>. However, one must not run stream in standalone mode in production. The preferred way is to add stream objects into the engine instance at will using: <code>engine.add(stream)</code>. The streams can be updated or removed from the engine as well using: <code>engine.update(), engine.remove()</code>.</p>
-<p>The engine produces a <em>lot of events</em> that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using <code>engineProcess.stream.error</code> event.</p>
-<ul>
-<li>You could provide your own event handling functions using any of the following: <code>engine.on(...)</code> or <code>engine.onAny(...)</code>. Refer to the documentation of the package named EventEmitter2 for details.</li>
-<li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler()</code></li>
-<li>Each event emits the <code>eventObj</code> that takes the form of <code>{ stream?: Stream, msg: string }</code> i.e. it always contains the <code>msg</code> string value and may contain the <code>stream</code> object if the event was generated in the context of a stream.</li>
-</ul>
+<code>streams</code> represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: <code>new Stream(...)</code>. Stream objects are added to the engine instance at will using: <code>engine.add(stream)</code>. The streams can be updated or removed from the engine at will as well using: <code>engine.update(), engine.remove()</code>.</p>
 
 <a href="#overview-high-level-apis" id="overview-high-level-apis" style="color: inherit; text-decoration: none;">
   <h3>Overview: High level APIs</h3>
@@ -174,9 +186,9 @@ Each message contains three parts:</p>
   <h2>Using high level APIs: from/via/to</h2>
 </a>
 <p>The following examples illustrate the basic usage. Most examples below make use of <code>bloblang</code>; please refer to <a href="https://www.benthos.dev/docs/guides/bloblang/about">link</a> for details on how to use it.</p>
-<pre><code class="language-js"><span class="hl-0">// import the required constructs</span><br/><span class="hl-1">import</span><span class="hl-2"> { </span><span class="hl-3">from</span><span class="hl-2">, </span><span class="hl-3">to</span><span class="hl-2"> } </span><span class="hl-1">from</span><span class="hl-2"> </span><span class="hl-4">&quot;exthos&quot;</span><br/><br/><span class="hl-0">// example: create a route, start it and stop it after 5 seconds</span><br/><span class="hl-5">from</span><span class="hl-2">({ </span><span class="hl-3">generate:</span><span class="hl-2"> { </span><span class="hl-3">mapping:</span><span class="hl-2"> </span><span class="hl-4">&#39;root = count(&quot;gen&quot;)&#39;</span><span class="hl-2"> } }).</span><span class="hl-5">to</span><span class="hl-2">({ </span><span class="hl-3">stdout:</span><span class="hl-2"> {} }).</span><span class="hl-5">start</span><span class="hl-2">().</span><span class="hl-5">stopAfter</span><span class="hl-2">(</span><span class="hl-4">&quot;5s&quot;</span><span class="hl-2">)</span><br/><br/><span class="hl-0">// example: create a route with a terminating source and start it.</span><br/><span class="hl-0">// generate input with count = 2 will geenrate 2 msgs and </span><br/><span class="hl-5">from</span><span class="hl-2">({ </span><span class="hl-3">generate:</span><span class="hl-2"> { </span><span class="hl-3">mapping:</span><span class="hl-2"> </span><span class="hl-4">&#39;root = count(&quot;gen&quot;)&#39;</span><span class="hl-2">, </span><span class="hl-3">count:</span><span class="hl-2"> </span><span class="hl-6">2</span><span class="hl-2"> } }).</span><span class="hl-5">to</span><span class="hl-2">({ </span><span class="hl-3">stdout:</span><span class="hl-2"> {} }).</span><span class="hl-5">start</span><span class="hl-2">()</span><br/><span class="hl-0">// no need to specify stop explicitly here as the route will stop after 2 messages are processed</span>
+<pre><code class="language-js"><span class="hl-0">// import the required constructs</span><br/><span class="hl-1">import</span><span class="hl-2"> { </span><span class="hl-3">from</span><span class="hl-2">, </span><span class="hl-3">to</span><span class="hl-2"> } </span><span class="hl-1">from</span><span class="hl-2"> </span><span class="hl-4">&quot;exthos&quot;</span><br/><br/><span class="hl-0">// example: create a route, start it and stop it after 5 seconds</span><br/><span class="hl-5">from</span><span class="hl-2">({ </span><span class="hl-3">generate:</span><span class="hl-2"> { </span><span class="hl-3">mapping:</span><span class="hl-2"> </span><span class="hl-4">&#39;root = count(&quot;gen&quot;)&#39;</span><span class="hl-2"> } }).</span><span class="hl-5">to</span><span class="hl-2">({ </span><span class="hl-3">stdout:</span><span class="hl-2"> {} }).</span><span class="hl-5">start</span><span class="hl-2">().</span><span class="hl-5">stopAfter</span><span class="hl-2">(</span><span class="hl-6">5000</span><span class="hl-2">)</span><br/><br/><span class="hl-0">// example: create a route with a terminating source and start it.</span><br/><span class="hl-0">// generate input with count = 2 will geenrate 2 msgs and </span><br/><span class="hl-5">from</span><span class="hl-2">({ </span><span class="hl-3">generate:</span><span class="hl-2"> { </span><span class="hl-3">mapping:</span><span class="hl-2"> </span><span class="hl-4">&#39;root = count(&quot;gen&quot;)&#39;</span><span class="hl-2">, </span><span class="hl-3">count:</span><span class="hl-2"> </span><span class="hl-6">2</span><span class="hl-2"> } }).</span><span class="hl-5">to</span><span class="hl-2">({ </span><span class="hl-3">stdout:</span><span class="hl-2"> {} }).</span><span class="hl-5">start</span><span class="hl-2">()</span><br/><span class="hl-0">// no need to specify stop explicitly here as the route will stop after 2 messages are processed</span>
 </code></pre>
-<p>For more examples refer to: <a href="/examples/hlapis/README.md">examples dir</a></p>
+<p>For more examples refer to: <a href="%5B/examples/hlapis/README.md%5D(https://github.com/exthosdev/exthos/tree/main/examples/hlapis)">examples dir</a></p>
 
 <a href="#othernon-functional-features" id="othernon-functional-features" style="color: inherit; text-decoration: none;">
   <h2>Other/non-functional features</h2>
@@ -205,13 +217,12 @@ The labels will be sanitised by the stream instace to follow the following rules
 <p>There are two source of errors we must handle:</p>
 <ol>
 <li>errors in JS land<ol>
-<li>For JS land, errors can be handled using <code>try/catch/finally</code> or <code>.then().catch().finally()</code></li>
+<li>For JS land, errors can be handled using <code>try(){}catch(){}finally(){}</code> or <code>&lt;Promise&gt;.then().catch().finally()</code></li>
 <li>Checkout the examples <a href="https://github.com/exthosdev/exthos/blob/main/examples/hlapis/errorHandling.js">here</a></li>
 </ol>
 </li>
 <li>errors in Golang land<ol>
 <li>For Golang land, stream and message related errors must be handled using the component configurations, which are then handed over to benthos. As a rule of thumb, when an error occurs on a message, the error property of the message is marked with the error description and the message moves to the next component of the stream. To understand error handling please go through <a href="https://www.benthos.dev/docs/configuration/error_handling/">this link</a></li>
-<li>Checkout the examples <a href="TODO">here_TODO</a></li>
 </ol>
 </li>
 </ol>
@@ -259,12 +270,12 @@ The labels will be sanitised by the stream instace to follow the following rules
 <td>engine logs of traceLog type, providing very detailed trace level information such as flow of code execution</td>
 </tr>
 <tr>
-<td>exthos:engine:eventLog*</td>
-<td>engine logs of all eventLog type, providing events generated as a log; each logline is a JSON containing the <code>eventObj</code></td>
+<td>exthos:eventLog*</td>
+<td>all eventLog type, providing events generated as a log; each logline is a JSON containing the <code>eventObj</code></td>
 </tr>
 <tr>
-<td>exthos:engine:eventLog:<code>&lt;eventName&gt;</code></td>
-<td>engine logs of eventLog type and <code>&lt;eventName&gt;</code> eventName, refer to <a href="#events">Events</a> for complete list of <code>&lt;eventName&gt;s</code></td>
+<td>exthos:eventLog:<code>&lt;eventName&gt;</code></td>
+<td>eventLog type with an <code>&lt;eventName&gt;</code> eventName, refer to <a href="#events">Events</a> for complete list of <code>&lt;eventName&gt;s</code></td>
 </tr>
 <tr>
 <td>exthos:engineProcess:trace</td>
@@ -295,12 +306,171 @@ The labels will be sanitised by the stream instace to follow the following rules
 <a href="#events" id="events" style="color: inherit; text-decoration: none;">
   <h3>Events</h3>
 </a>
-<p>TODO</p>
+<p><code>exthos</code> emits a lot of events. These can be used to trigger custom actions (aka handlers) in JS-land e.g. sending an alert notification on an <code>error</code> type category, or stopping the engine on a <code>fatal</code> type category, etc.</p>
+<ul>
+<li>You could provide your own event handling functions (actions/handlers) using any of the following. For even more options on how to handle events refer to <a href="https://github.com/hij1nx/EventEmitter2#readme">EventEmitter2</a> documentation<ul>
+<li><code>engine.on(&quot;&lt;eventName&gt;&quot;, (eventObj) =&gt; {...})</code></li>
+<li><code>engine.onAny((eventName, eventObj) =&gt; {...})</code> - listens to all events geenrated by the engine and allows you to handle them at one place</li>
+</ul>
+</li>
+<li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler()</code><ul>
+<li>the default event hander prints all events on the console/stdout,</li>
+<li>stops the stream on receiving an &quot;engineProcess.stream.error&quot; event 5 times</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>As mention under <a href="#logging">Logging</a>, all events are also logged under <code>exthos:eventLog</code> namespace</p>
+</blockquote>
+<p>All possible events are shown in the table below:</p>
+<table>
+<thead>
+<tr>
+<th>Event name (eventName)</th>
+<th>Event category</th>
+<th>Event Object properties (eventObj)</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>engine.active</code></td>
+<td>general</td>
+<td><code>{msg: string, time: string}</code></td>
+<td>signifies that the engine is running</td>
+</tr>
+<tr>
+<td><code>engine.inactive</code></td>
+<td>general</td>
+<td><code>{msg: string, time: string}</code></td>
+<td>signifies that the engine is NOT running</td>
+</tr>
+<tr>
+<td><code>engine.warn</code></td>
+<td>warn</td>
+<td><code>{msg: string, time: string, error: Error}</code></td>
+<td>signifies a potential abnormality that was ignored/recovered</td>
+</tr>
+<tr>
+<td><code>engine.error</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, error: Error}</code></td>
+<td>signifies a failure to an operation, not the entire engine</td>
+</tr>
+<tr>
+<td><code>engine.fatal</code></td>
+<td>fatal</td>
+<td><code>{msg: string, time: string, error: Error}</code></td>
+<td>signifies a failure to the entire engine, leading to shutdown of the engine</td>
+</tr>
+<tr>
+<td><code>engine.stream.add</code></td>
+<td>general</td>
+<td><code>{msg: string, time: string, stream: Stream}</code></td>
+<td>signifies that a stream has been added to the engine</td>
+</tr>
+<tr>
+<td><code>engine.stream.update</code></td>
+<td>general</td>
+<td><code>{msg: string, time: string, stream: Stream}</code></td>
+<td>signifies that a stream has been updated to the engine</td>
+</tr>
+<tr>
+<td><code>engine.stream.remove</code></td>
+<td>general</td>
+<td><code>{msg: string, time: string, stream: Stream}</code></td>
+<td>signifies that a stream has been removed from the engine</td>
+</tr>
+<tr>
+<td><code>engine.stream.error</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>signifies an error when the engine tried to add/update/remove the stream from the engine</td>
+</tr>
+<tr>
+<td><code>engineProcess.stream.fatal</code></td>
+<td>fatal</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>jury is out on when engineProcess emits this</td>
+</tr>
+<tr>
+<td><code>engineProcess.stream.error</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>jury is out on when engineProcess emits this</td>
+</tr>
+<tr>
+<td><code>engineProcess.stream.warn</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>jury is out on when engineProcess emits this</td>
+</tr>
+<tr>
+<td><code>engineProcess.stream.info</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>jury is out on when engineProcess emits this</td>
+</tr>
+<tr>
+<td><code>engineProcess.stream.debug</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>jury is out on when engineProcess emits this</td>
+</tr>
+<tr>
+<td><code>engineProcess.stream.trace</code></td>
+<td>error</td>
+<td><code>{msg: string, time: string, stream: Stream, error: Error}</code></td>
+<td>jury is out on when engineProcess emits this</td>
+</tr>
+</tbody></table>
+<p>Each event emits the <code>eventObj</code> that takes the form of <code>{ stream?: Stream, msg: string }</code> i.e. it always contains the <code>msg</code> string value and may contain the <code>stream</code> object if the event was generated in the context of a stream.</p>
 
 <a href="#metrics" id="metrics" style="color: inherit; text-decoration: none;">
   <h3>Metrics</h3>
 </a>
 <p>Coming soon.</p>
+
+<a href="#tracing-and-telemetry" id="tracing-and-telemetry" style="color: inherit; text-decoration: none;">
+  <h3>Tracing and Telemetry</h3>
+</a>
+<p>Coming soon.</p>
+
+<a href="#project-status" id="project-status" style="color: inherit; text-decoration: none;">
+  <h1>Project status</h1>
+</a>
+<p>exthos is under heavy development, but <strong>ready to be used in production for light usage</strong></p>
+
+<a href="#compatability-amp-support" id="compatability-amp-support" style="color: inherit; text-decoration: none;">
+  <h1>Compatability &amp; Support</h1>
+</a>
+<ul>
+<li>only linux based OS will work</li>
+<li>exthos to benthos compatability mapping follows:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>exthos</th>
+<th>benthos</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>v0.0.1 - v0.2.1</td>
+<td>v4.5.1</td>
+</tr>
+</tbody></table>
+
+<a href="#acknowledgement" id="acknowledgement" style="color: inherit; text-decoration: none;">
+  <h1>Acknowledgement</h1>
+</a>
+<p>While we thank all the projects that exthos depends on, we would like to show special gratitude towards the following projects:</p>
+<ul>
+<li><a href="https://github.com/benthosdev/benthos">benthos</a></li>
+<li><a href="https://github.com/nickdesaulniers/node-nanomsg">nanomsg</a></li>
+<li><a href="https://github.com/hij1nx/EventEmitter2">eventemitter2</a></li>
+<li><a href="https://github.com/debug-js/debug">debug</a></li>
+<li><a href="https://github.com/DirtyHairy/async-mutex">async-mutex</a></li>
+</ul>
 </div></div>
 <div class="col-4 col-menu menu-sticky-wrap menu-highlight">
 <div class="tsd-navigation settings">

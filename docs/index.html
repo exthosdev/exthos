@@ -10,13 +10,68 @@
 <div class="col-8 col-content">
 <div class="tsd-page-title">
 <h2>exthos</h2></div>
-<div class="tsd-panel tsd-typography"><blockquote>
-<p>stream processing in nodejs using the power of golang</p>
+<div class="tsd-panel tsd-typography">
+<a href="#exthos" id="exthos" style="color: inherit; text-decoration: none;">
+  <h1>exthos</h1>
+</a>
+<p><img src="/media/logo_exthos.gif" alt="logo"></p>
+<blockquote>
+<p>stream processing in NodeJS using the power of Golang</p>
 </blockquote>
-<p>Website: <a href="https://exthosdev.github.io/exthos/">https://exthosdev.github.io/exthos/</a></p>
+
+<a href="#website" id="website" style="color: inherit; text-decoration: none;">
+  <h2>Website</h2>
+</a>
+<p><a href="https://exthosdev.github.io/exthos/">https://exthos/</a></p>
+
+<a href="#table-of-contents" id="table-of-contents" style="color: inherit; text-decoration: none;">
+  <h2>Table of Contents</h2>
+</a>
+<ul>
+<li><a href="#exthos">exthos</a><ul>
+<li><a href="#website">Website</a></li>
+<li><a href="#table-of-contents">Table of Contents</a></li>
+</ul>
+</li>
+<li><a href="#theory">Theory</a><ul>
+<li><a href="#motivation">Motivation</a></li>
+<li><a href="#how-exthos-works">How exthos works</a><ul>
+<li><a href="#overview-low-level-apis">Overview: Low level APIs</a></li>
+<li><a href="#overview-high-level-apis">Overview: High level APIs</a></li>
+</ul>
+</li>
+<li><a href="#components">Components</a><ul>
+<li><a href="#inputs">Inputs</a></li>
+<li><a href="#outputs">Outputs</a></li>
+<li><a href="#processors">Processors</a></li>
+<li><a href="#messages">Messages</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#in-practice">In practice</a><ul>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#using-high-level-apis-fromviato">Using high level APIs: from/via/to</a></li>
+<li><a href="#othernon-functional-features">Other/non-functional features</a><ul>
+<li><a href="#labels">Labels</a></li>
+<li><a href="#error-handling">Error handling</a></li>
+<li><a href="#logging">Logging</a></li>
+<li><a href="#events">Events</a></li>
+<li><a href="#metrics">Metrics</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<hr>
+
+<a href="#theory" id="theory" style="color: inherit; text-decoration: none;">
+  <h1>Theory</h1>
+</a>
 
 <a href="#motivation" id="motivation" style="color: inherit; text-decoration: none;">
-  <h1>Motivation</h1>
+  <h2>Motivation</h2>
 </a>
 <p><strong><code>exthos</code></strong> brings together <code>javascript</code> for its ubiquity and ease of use and <code>golang</code> for its high performance nature to solve <em><code>stream processing problem</code></em>.</p>
 <p>javascript is the most common programming language (source: stackoverflow). The popularity seems to stem from the fact that is it both light weight and easy to integrate with other frameworks/languages. However, it is just not made for heavy compute, and stream processing often requires that. On the other hand, golang&#39;s speed, simplicity and memory efficiency pegs it as a great candidate for compute heavy workloads.</p>
@@ -24,21 +79,21 @@
 <p>Acknowledgement: exthos makes heavy use of benthos, which is an amazing stream processing package written in golang. While benthos promotes file based configuration, exthos promotes the use of Integration DSL within Javascript.</p>
 
 <a href="#how-exthos-works" id="how-exthos-works" style="color: inherit; text-decoration: none;">
-  <h1>How exthos works</h1>
+  <h2>How exthos works</h2>
 </a>
-<p>exthos has two set of APIs: </p>
+<p>exthos has two set of APIs:</p>
 <ul>
-<li>the low level APIs and </li>
-<li>the high level APIs.</li>
+<li>the low level APIs and</li>
+<li>the high level APIs</li>
 </ul>
-<p><strong>Users are encouraged to use the HL APIs</strong>, although an overview of the LL APIs helps to create a good foundation. </p>
+<p><strong>Users are encouraged to use the HL APIs</strong>, although an overview of the LL APIs helps to create a good foundation.</p>
 
 <a href="#overview-low-level-apis" id="overview-low-level-apis" style="color: inherit; text-decoration: none;">
-  <h2>Overview: Low level APIs</h2>
+  <h3>Overview: Low level APIs</h3>
 </a>
-<p>At the core of exthos is the <code>engine</code> that is responsible for running the <code>engineProcess</code>. The <code>engineProcess</code> is esentially a child process that runs benthos (in streams mode). 
+<p>At the core of exthos is the <code>engine</code> that is responsible for running the <code>engineProcess</code>. The <code>engineProcess</code> is esentially a child process that runs benthos (in streams mode).
 <code>streams</code> represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: <code>new Stream(...)</code>. During development, these streams can be run in standalone mode i.e. without an engine using: <code>stream.start()</code>. However, one must not run stream in standalone mode in production. The preferred way is to add stream objects into the engine instance at will using: <code>engine.add(stream)</code>. The streams can be updated or removed from the engine as well using: <code>engine.update(), engine.remove()</code>.</p>
-<p>The engine produces a <em>lot of events</em> that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using <code>engine.stream.error</code> event. </p>
+<p>The engine produces a <em>lot of events</em> that can be listened to for specific actions. e.g. to notify your Operations team when an error occurs in one of the streams using <code>engineProcess.stream.error</code> event.</p>
 <ul>
 <li>You could provide your own event handling functions using any of the following: <code>engine.on(...)</code> or <code>engine.onAny(...)</code>. Refer to the documentation of the package named EventEmitter2 for details.</li>
 <li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler()</code></li>
@@ -46,7 +101,7 @@
 </ul>
 
 <a href="#overview-high-level-apis" id="overview-high-level-apis" style="color: inherit; text-decoration: none;">
-  <h2>Overview: High level APIs</h2>
+  <h3>Overview: High level APIs</h3>
 </a>
 <p>The high level APIs abstract a lot of complexity away from the user and enabling the users to focus on the integration/streaming problem. As mentioned before, HLAPIs are heavity inspired by Apache Camel&#39;s DSL, however it is important to note that there is no overlap or commonality between exthos and Camel.</p>
 <p>While using HLAPIs, the users create what we call a <code>route</code>. Internally, a route is akin to a LLAPI stream.
@@ -54,8 +109,12 @@ A simple route would consist of an input and an output specified in a fluent API
 <p>Once a route is created, one can start it. Internally, exthos starts the engine if not running and adds the route to the engine. e.g. <code>route01.start()</code></p>
 <p>The route can subsequently be stopped using: <code>route01.stop()</code></p>
 
+<a href="#components" id="components" style="color: inherit; text-decoration: none;">
+  <h2>Components</h2>
+</a>
+
 <a href="#inputs" id="inputs" style="color: inherit; text-decoration: none;">
-  <h2>Inputs</h2>
+  <h3>Inputs</h3>
 </a>
 <p><code>exthos</code> supports a number of inputs as sources of data. Take a look <a href="./src/types/inputs.ts">here</a>.</p>
 <p>Some specials inputs are:</p>
@@ -65,7 +124,7 @@ A simple route would consist of an input and an output specified in a fluent API
 </ul>
 
 <a href="#outputs" id="outputs" style="color: inherit; text-decoration: none;">
-  <h2>Outputs</h2>
+  <h3>Outputs</h3>
 </a>
 <p><code>exthos</code> supports a number of outputs as destinations of data. Take a look <a href="./src/types/outputs.ts">here</a>.</p>
 <p>Some specials outputs are:</p>
@@ -75,7 +134,7 @@ A simple route would consist of an input and an output specified in a fluent API
 </ul>
 
 <a href="#processors" id="processors" style="color: inherit; text-decoration: none;">
-  <h2>Processors</h2>
+  <h3>Processors</h3>
 </a>
 <p><code>exthos</code> supports a number of processors. Procesors are used to act on a stream of data to perform operations such as lookup, filter, enrichment etc. Take a look <a href="./src/types/processors.ts">here</a>.</p>
 <p>Some specials processors are:</p>
@@ -84,19 +143,29 @@ A simple route would consist of an input and an output specified in a fluent API
 </ul>
 
 <a href="#messages" id="messages" style="color: inherit; text-decoration: none;">
-  <h2>Messages</h2>
+  <h3>Messages</h3>
 </a>
 <p><code>messages</code> are the events that are produced by sources, processed by processors and consumed by destinations.
 messages are always part of a <code>batch</code>. If unspcified, a batch contains a single message only. However, you can create batches of multiple messages and operate on them.
 Each message contains three parts:</p>
 <ul>
-<li><code>meta</code>: contains the metadata for the message as key value pairs </li>
+<li><code>meta</code>: contains the metadata for the message as key value pairs</li>
 <li><code>content</code>: contains the actual data you may be intereted it. This data can be anything e.g. raw bytes, structured JSON, text etc.</li>
 <li><code>error</code>: contains description of the error associated with a message. This is important to note, <strong>because messages are not dropped on error</strong>. i.e. if a processor fails on a message, the error property is tagged with the error description and the message is moved to the next processor.</li>
 </ul>
+<hr>
+
+<a href="#in-practice" id="in-practice" style="color: inherit; text-decoration: none;">
+  <h1>In practice</h1>
+</a>
+
+<a href="#installation" id="installation" style="color: inherit; text-decoration: none;">
+  <h2>Installation</h2>
+</a>
+<p><code>npm i exthos</code></p>
 
 <a href="#usage" id="usage" style="color: inherit; text-decoration: none;">
-  <h1>Usage</h1>
+  <h2>Usage</h2>
 </a>
 <p>Now that you hopefully have a fair idea of what Benthos is and is not, it&#39;s time to get your hands dirty.</p>
 <p>A good starting point is to read the notes below and then head to the <code>examples</code> folders.</p>
@@ -110,23 +179,126 @@ Each message contains three parts:</p>
 <p>For more examples refer to: <a href="/examples/hlapis/README.md">examples dir</a></p>
 
 <a href="#othernon-functional-features" id="othernon-functional-features" style="color: inherit; text-decoration: none;">
-  <h1>Other/non-functional features</h1>
+  <h2>Other/non-functional features</h2>
 </a>
+
+<a href="#labels" id="labels" style="color: inherit; text-decoration: none;">
+  <h3>Labels</h3>
+</a>
+<blockquote>
+<p>this secions covers <code>llapis</code> only</p>
+</blockquote>
+<p>Labels can be optionally assigned to all components. They aid in debugging and tracing.
+The labels will be sanitised by the stream instace to follow the following rules:</p>
+<ul>
+<li>should match the regular expression /^[a-z0-9_]+$/</li>
+<li>must not start with an underscore</li>
+</ul>
 
 <a href="#error-handling" id="error-handling" style="color: inherit; text-decoration: none;">
-  <h2>error handling</h2>
+  <h3>Error handling</h3>
 </a>
-<p>Error handling </p>
+<blockquote>
+<p>this section covers <code>hlapis</code> only</p>
+</blockquote>
+<p><code>exthos</code> makes best attempt at swallowing any errors generated</p>
+<p>There are two source of errors we must handle:</p>
+<ol>
+<li>errors in JS land<ol>
+<li>For JS land, errors can be handled using <code>try/catch/finally</code> or <code>.then().catch().finally()</code></li>
+<li>Checkout the examples <a href="https://github.com/exthosdev/exthos/blob/main/examples/hlapis/errorHandling.js">here</a></li>
+</ol>
+</li>
+<li>errors in Golang land<ol>
+<li>For Golang land, stream and message related errors must be handled using the component configurations, which are then handed over to benthos. As a rule of thumb, when an error occurs on a message, the error property of the message is marked with the error description and the message moves to the next component of the stream. To understand error handling please go through <a href="https://www.benthos.dev/docs/configuration/error_handling/">this link</a></li>
+<li>Checkout the examples <a href="TODO">here_TODO</a></li>
+</ol>
+</li>
+</ol>
 
 <a href="#logging" id="logging" style="color: inherit; text-decoration: none;">
-  <h2>logging</h2>
+  <h3>Logging</h3>
 </a>
-<p>exthos makes use of the fabulous debug module. The namespaces that can be configured with <code>DEBUG=</code> are:</p>
-<pre><code><span class="hl-2">    - </span><span class="hl-3">exthos</span><span class="hl-2">*</span><br/><span class="hl-2">    - </span><span class="hl-7">exthos</span><span class="hl-2">:</span><span class="hl-7">engine</span><span class="hl-2">:*</span><br/><span class="hl-2">    - </span><span class="hl-7">exthos</span><span class="hl-2">:</span><span class="hl-7">engineProcess</span><span class="hl-2">:*</span>
-</code></pre>
+<p><code>exthos</code> makes use of the debug package to log output to stdout.</p>
+<p>You can configure the debug namespace using one of the following:</p>
+<ol>
+<li><code>DEBUG=...*</code> environment variable</li>
+<li>When initializing the engine<ol>
+<li>llapi: <code>new Engine({}, {debugNamespace: &quot;...*&quot;})</code></li>
+<li>hlapi: <code>engine.setEngineConfigOptions({}, {debugNamespace: &quot;...*&quot;})</code></li>
+</ol>
+</li>
+</ol>
+<p>The default namespace is nil i.e. = &quot;&quot;</p>
+<p>The following namespaces are available within <code>exthos</code>:</p>
+<table>
+<thead>
+<tr>
+<th>namespace</th>
+<th>description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>exthos*</td>
+<td>all exthos logs</td>
+</tr>
+<tr>
+<td>exthos:engine:*</td>
+<td>engine logs of all <code>log types</code>; engine logs originate in the Javascript/Node land</td>
+</tr>
+<tr>
+<td>exthos:engineProcess:*</td>
+<td>engineProcess logs of all <code>log levels</code>; engineProcess logs originate from the golang runtime</td>
+</tr>
+<tr>
+<td>exthos:engine:debugLog</td>
+<td>engine logs of debugLog type, providing info debug and info level information</td>
+</tr>
+<tr>
+<td>exthos:engine:traceLog</td>
+<td>engine logs of traceLog type, providing very detailed trace level information such as flow of code execution</td>
+</tr>
+<tr>
+<td>exthos:engine:eventLog*</td>
+<td>engine logs of all eventLog type, providing events generated as a log; each logline is a JSON containing the <code>eventObj</code></td>
+</tr>
+<tr>
+<td>exthos:engine:eventLog:<code>&lt;eventName&gt;</code></td>
+<td>engine logs of eventLog type and <code>&lt;eventName&gt;</code> eventName, refer to <a href="#events">Events</a> for complete list of <code>&lt;eventName&gt;s</code></td>
+</tr>
+<tr>
+<td>exthos:engineProcess:trace</td>
+<td>engineProcess logs of trace level</td>
+</tr>
+<tr>
+<td>exthos:engineProcess:debug</td>
+<td>engineProcess logs of debug level</td>
+</tr>
+<tr>
+<td>exthos:engineProcess:info</td>
+<td>engineProcess logs of info level</td>
+</tr>
+<tr>
+<td>exthos:engineProcess:warn</td>
+<td>engineProcess logs of warn level</td>
+</tr>
+<tr>
+<td>exthos:engineProcess:error</td>
+<td>engineProcess logs of error level</td>
+</tr>
+<tr>
+<td>exthos:engineProcess:fatal</td>
+<td>engineProcess logs of fatal level</td>
+</tr>
+</tbody></table>
+
+<a href="#events" id="events" style="color: inherit; text-decoration: none;">
+  <h3>Events</h3>
+</a>
+<p>TODO</p>
 
 <a href="#metrics" id="metrics" style="color: inherit; text-decoration: none;">
-  <h2>metrics</h2>
+  <h3>Metrics</h3>
 </a>
 <p>Coming soon.</p>
 </div></div>

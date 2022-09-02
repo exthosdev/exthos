@@ -76,7 +76,7 @@ exthos has two set of APIs:
 ### Overview: Low level APIs
 
 At the core of exthos is the `engine` that is responsible for running the `engineProcess`. The `engineProcess` is esentially a child process that runs benthos (in streams mode).
-`streams` represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: `new Stream(...)`. During development, these streams can be run in standalone mode i.e. without an engine using: `stream.start()`. However, one must not run stream in standalone mode in production. The preferred way is to add stream objects into the engine instance at will using: `engine.add(stream)`. The streams can be updated or removed from the engine as well using: `engine.update(), engine.remove()`.
+`streams` represent inputs connected to outputs, optionally via a pipeline containing processors and are created using: `new Stream(...)`. Stream objects are added to the engine instance at will using: `engine.add(stream)`. The streams can be updated or removed from the engine at will as well using: `engine.update(), engine.remove()`.
 
 ### Overview: High level APIs
 
@@ -226,7 +226,6 @@ The following namespaces are available within `exthos`:
   - `engine.onAny((eventName, eventObj) => {...})` - listens to all events geenrated by the engine and allows you to handle them at one place
 - Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler()`
   - the default event hander prints all events on the console/stdout,
-  - stops the engine on receiving an "engine.fatal" event, and
   - stops the stream on receiving an "engineProcess.stream.error" event 5 times
 
 > As mention under [Logging](#logging), all events are also logged under `exthos:eventLog` namespace

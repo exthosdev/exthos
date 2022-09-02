@@ -1,4 +1,4 @@
-name: deploy
+name: deploy_to_npm
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  build_test_deploy:
     runs-on: ubuntu-latest
     strategy:
       matrix:

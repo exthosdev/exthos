@@ -7,6 +7,6 @@ let stream1 = new exthos.Stream({ input: { generate: { mapping: `root = "msg#" +
 engine.add(stream1)
 await engine.start()
 
-stream1.outPort.on("data", (d) => {
+stream1.outport.on("data", (d) => {
     console.log(`rec data: ${d.toString()}`);
-});
+})

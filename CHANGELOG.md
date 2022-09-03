@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: axios errors are now handled for circ ref errors beforing getting passed to formatErrorForEvent
+
 ## v0.2.1
 
 - fix: namespacing and updated README

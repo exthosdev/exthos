@@ -104,19 +104,6 @@ abstract class EngineProcessAPI extends EventEmitter2 { // EventEmitter.EventEmi
                 throw standardizeAxiosErrors(e)
             }
         })
-        // return await self._engineProcessMutex.runExclusive(async () => {
-        //     try {
-        //         let streamsConfig: { [key: string]: TStreamConfig } = {}
-        //         for (let k in streamsMap) {
-        //             streamsConfig[k] = streamsMap[k].streamConfig
-        //         }
-        //         let resp = await self._axiosInstance.post("/streams", streamsConfig, axiosReqConfig)
-        //         return resp
-
-        //     } catch (e: any) {
-        //         throw standardizeAxiosErrors(e)
-        //     }
-        // })
     }
 
     protected async _apiDeleteStream(stream: Stream, axiosReqConfig: AxiosRequestConfig = {}): Promise<AxiosResponse<string>> {

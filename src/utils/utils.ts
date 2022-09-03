@@ -1,6 +1,8 @@
 import { execaCommandSync } from "execa"
 import axios from 'axios';
 import proxymise from "./proxymise.js";
+import { IncomingMessage } from "http";
+import { Stream } from "stream";
 
 function checkExeExists(): boolean {
     try {
@@ -14,7 +16,27 @@ function checkExeExists(): boolean {
 function standardizeAxiosErrors(e: any): Error {
     if (axios.isAxiosError(e)) {
         if (e.response) {
-            return new Error(e.message)
+            // take care of circular  reference errors
+            delete e.response.request
+            delete (e.response as any)["config"]
+
+            let dataIsStream = e.response.data instanceof IncomingMessage && e.response.data instanceof Stream
+            let toReturnError = {
+                name: "Error",
+                message: "axios response has an error",
+                response: {
+                    status: e.response.status,
+                    statusText: e.response.statusText,
+                    headers: e.response.headers,
+                    data: dataIsStream ? "" : e.response.data
+                },
+                request: {
+                    host: e.request.getHeader('host'),
+                    path: e.request.path
+                }
+            }
+            return toReturnError
+            // return new Error(e.message)
             // not sending all the information. should we?
             // return new Error(JSON.stringify({ status: e.response.status, headers: e.response.headers, data: e.response.data }))
         } else if (e.request) {

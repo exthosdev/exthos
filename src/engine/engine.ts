@@ -2,10 +2,10 @@ import * as path from "path";
 import { tmpdir } from "os";
 import * as fs from "fs";
 import { randomUUID } from 'crypto';
-import { Deferred, sleep, getISOStringLocalTz, getCaller, formatErrorForEvent } from '../utils/utils.js';
+import { Deferred, sleep, getISOStringLocalTz, getCaller, formatErrorForEvent, standardizeAxiosErrors } from '../utils/utils.js';
 import { execaCommand, ExecaChildProcess, execaCommandSync } from 'execa';
 import * as net from "net";
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { Stream } from "../stream/stream.js";
 import debug from "debug";
@@ -356,8 +356,8 @@ class Engine extends EngineProcessAPI {
                      * CHECK #1 checkExeExists
                      */
                     // TODO: these must come from the config
-                    let benthosTag = "v4.5.1"
-                    let benthosVersion = "4.5.1"
+                    let benthosTag = "v4.5.1" // "v4.5.1"
+                    let benthosVersion = "4.5.1" //"4.5.1"
                     let benthosOS = "linux"
                     let benthosArch = "amd64"
                     let benthosArm = ""
@@ -374,14 +374,19 @@ class Engine extends EngineProcessAPI {
                             let benthosURL = `https://github.com/benthosdev/benthos/releases/download/${benthosTag}/${benthosFileName + ".tar.gz"}`
                             self.#debugLog(`${self.#benthosEXEFullPath} doesnt exist`)
                             self.#debugLog(`downloading archive from: ${benthosURL}`)
-                            let resp = await axios.get(benthosURL, { responseType: 'stream' })
+                            let resp: AxiosResponse<any, any>
+                            try {
+                                resp = await axios.get(benthosURL, { responseType: 'stream' })
+                            } catch (e: any) {
+                                throw standardizeAxiosErrors(e)
+                            }
                             await streamPromises.pipeline(resp.data, fs.createWriteStream(benthosArchiveFullPath))
                             self.#debugLog(`extracting archive ${benthosArchiveFullPath}`)
                             execaCommandSync(`tar xzvf ${benthosArchiveFullPath} -C ${benthosDir} benthos`)
                             execaCommandSync(`mv ${path.join(benthosDir, "benthos")} ${path.join(benthosDir, benthosFileName)}`)
                             fs.chmodSync(self.#benthosEXEFullPath, "0777")
                             self.#debugLog(`benthos installation completed`)
-                        } catch (e: any) {
+                        } catch (e: any) {                            
                             self.emit(self.engineEvents["engine.fatal"], { msg: "benthos cannot be installed", error: formatErrorForEvent(e), time: getISOStringLocalTz() }) // TODO: change to error along with the 3
                             return self
                         }
@@ -705,7 +710,7 @@ class Engine extends EngineProcessAPI {
                     let resp = await self._apiGetStreamReady(stream, {
                         validateStatus:
                             (status) => {
-                                return (status <= 400 || status === 503)
+                                return (status < 400 || status === 503)
                             }
                     })
                     if (resp.status === 503) {
@@ -831,7 +836,7 @@ class Engine extends EngineProcessAPI {
         let self = this
         let caller = getCaller()
         self.#traceLog(`remove called from: ${caller}`)
-        
+
         try {
             return await self.#engineStreamAddUpdateRemoveMutex.runExclusive(async () => {
                 self.#traceLog(`remove mutex acquired from: ${caller}`)

@@ -1,7 +1,7 @@
 let config = {
-    engine: {
-        benthosPath: "/tmp"
-    }
-}
+  engine: {
+    benthosPath: "/tmp",
+  },
+};
 
-export { config }
+export { config };

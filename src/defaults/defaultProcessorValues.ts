@@ -1,38 +1,38 @@
-import { TProcessor } from "../types/processors.js"
+import { TProcessor } from "../types/processors.js";
 
 const defaultProcessorValues: TProcessor = {
-    label: "",
+  label: "",
 
-    noop: {},
+  noop: {},
 
-    bloblang: "",
+  bloblang: "",
 
-    archive: {
-        format: "binary",
-        path: ""
-    },
+  archive: {
+    format: "binary",
+    path: "",
+  },
 
-    log: {
-        level: "INFO",
-        fields_mapping: "root = {}",
-        message: ""
-    },
+  log: {
+    level: "INFO",
+    fields_mapping: "root = {}",
+    message: "",
+  },
 
-    subprocess: {
-        name: "",
-        args: [],
-        max_buffer: 65536,
-        codec_send: "lines",
-        codec_recv: "lines",
-    },
+  subprocess: {
+    name: "",
+    args: [],
+    max_buffer: 65536,
+    codec_send: "lines",
+    codec_recv: "lines",
+  },
 
-    javascript: "",
+  javascript: "",
 
-    branch: {
-        request_map: "",
-        processors: [],
-        result_map: ""
-    }
-}
+  branch: {
+    request_map: "",
+    processors: [],
+    result_map: "",
+  },
+};
 
-export { defaultProcessorValues }
+export { defaultProcessorValues };

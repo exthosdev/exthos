@@ -1,12 +1,12 @@
-import 'dotenv/config'
+import "dotenv/config";
 import { Stream } from "./stream/stream.js";
 import { Engine } from "./engine/engine.js";
-import { engine, from } from "./hlapis/index.js"
+import { engine, from } from "./hlapis/index.js";
 
 const exthos = {
-    engine,
-    from
-}
+  engine,
+  from,
+};
 
-export { Stream, Engine, engine, from,}
+export { Stream, Engine, engine, from };
 export default exthos;

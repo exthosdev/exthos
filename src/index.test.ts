@@ -15,7 +15,7 @@ describe("test group description", () => {
         }
       }
     );
-    exthos.engine.updateEngineConfigOptions({
+    exthos.engine.updateEngineConfigs({
       logger: { level: "NONE", format: "json" },
     });
   });

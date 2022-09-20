@@ -175,9 +175,7 @@ function proxyPromise<T extends (...args: any) => any>(t: T) {
   return proxymise(t) as (...params: Parameters<T>) => Awaited<
     ReturnType<T>
   > & {
-    then: (
-      value: (rt: Awaited<ReturnType<T>>) => void
-    ) => {
+    then: (value: (rt: Awaited<ReturnType<T>>) => void) => {
       catch: (value: (e: Error) => void) => {
         finally: (value: () => void) => void;
       };

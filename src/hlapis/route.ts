@@ -13,9 +13,7 @@ type Batching = Omit<
 type RouteProxymisedMethods<A extends any[], T extends keyof Route> = (
   ...a: A
 ) => Pick<Route, T> & {
-  then: (
-    value: (rt: Pick<Route, T>) => void
-  ) => {
+  then: (value: (rt: Pick<Route, T>) => void) => {
     catch: (value: (e: Error) => void) => {
       finally: (value: () => void) => void;
     };

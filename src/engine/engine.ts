@@ -22,8 +22,11 @@ import { EngineProcessAPI } from "./engineProcessAPI.js";
 import { once } from "events"; // TODO: remove and eventemitter2.once?
 import { Mutex } from "async-mutex";
 import { clearInterval } from "timers";
-import EventEmitter2 from "eventemitter2";
+import EventEmitter2, { ListenerFn } from "eventemitter2";
 import merge from "lodash.merge";
+// import { engineConfig, engineExtraConfig } from "../config/config.js";
+import config from "../config/config.js";
+import { EngineConfig, EngineExtraConfig } from "../config/types.js";
 
 /**
  * the eventObj type.
@@ -98,20 +101,23 @@ class Engine extends EngineProcessAPI {
     "exthos_engine_conf_" + randomUUID() + ".json"
   );
   #engineConfig!: EngineConfig;
+  #engineExtraConfig!: EngineExtraConfig;
+
   #engineProcess!: ExecaChildProcess<string>;
   #abortController = new AbortController();
   #shutdownAfterInactivityFor: number = 10000; // should usually be more than self._waitForActiveEventMs
   // must be more than _mgmtEventsFreqMs
   #mgmtEventsFreqMs: number = 2000;
   public waitForActiveEventMs: number = 5000; // must be more than 2-3 secs to give time for engine to turn active
-  #keepAliveInterval!: NodeJS.Timeout; //= setInterval(() => { }, 1 << 30);   // TODO: this should only be used in remote mode
+  #keepAliveInterval!: NodeJS.Timeout;
 
   /**
    * debug is used heavily;
-   * exthos:engine:log - give general debug logs
-   * exthos:engine:event - print all the events as they are emitted
-   * exthos:engine:trace - prints trace information showing flow of code
+   * exthos:engine:debugLog - give general debug logs
+   * exthos:eventLog - print events as they are emitted
+   * exthos:engine:traceLog - prints trace information showing flow of code
    */
+  // TODO: get base debug from utils, and make thsese static
   #debug = debug("exthos");
   #debugLog = this.#debug.extend("engine").extend("debugLog");
   #traceLog = this.#debug.extend("engine").extend("traceLog"); // used to print trace lines e.g. line numbers
@@ -124,8 +130,8 @@ class Engine extends EngineProcessAPI {
   #engineUpdateConfigOptionsMutex = new Mutex();
   #constructorDone = new Deferred();
 
-  #isLocal!: boolean;
-  #debugNamespace: string = "";
+  // #isLocal!: boolean;
+  // #debugNamespace: string = "";
   #scheme: "http" | "https" = "http";
   #tempLocalServer!: net.Server; // used to verify the IP and Port
   #streamsMap: { [key: string]: Stream } = {};
@@ -137,14 +143,13 @@ class Engine extends EngineProcessAPI {
   /**
    *
    * @param engineConfig
-   * @param engineOpts
+   * @param engineExtraConfig
    *  isLocal is defaulted to true
    */
   constructor(
     engineConfig: Partial<EngineConfig> = {},
-    engineOpts: { isLocal?: boolean; debugNamespace?: string } = {}
+    engineExtraConfig: Partial<EngineExtraConfig> = {}
   ) {
-    // TODO: , autostart?: boolean
     super();
     let self = this;
     let caller = getCaller();
@@ -153,10 +158,9 @@ class Engine extends EngineProcessAPI {
     self.#engineConstrStartStopMutex.runExclusive(() => {
       self.#traceLog(`engine constructor mutex acquired from: ${caller}`);
       try {
-        // dont use updateEngineConfigOptions to bypass the _constructorDone.promise await in it
-        // this.updateEngineConfigOptions(engineConfig, engineOpts).then(_ => {
+        // not using updateEngineConfigs so as to bypass the _constructorDone.promise await in it
         self.#setEngineConfig(engineConfig).then((_) => {
-          self.#setEngineOpts(engineOpts).then((_) => {
+          self.#setEngineExtraConfig(engineExtraConfig).then((_) => {
             self.#createAxiosInstance().then((_) => {
               self.#constructorDone.resolve();
             });
@@ -229,23 +233,21 @@ class Engine extends EngineProcessAPI {
   }
 
   // External API, where client must wait for engine to be initialized (aka constructor called)
-  public async updateEngineConfigOptions(
+  public async updateEngineConfigs(
     receivedEngineConfig: Partial<EngineConfig> = {},
-    receivedEngineOpts: { isLocal?: boolean; debugNamespace?: string } = {}
+    receivedEngineExtraConfig: Partial<EngineExtraConfig> = {}
   ) {
     let self = this;
     let caller = getCaller();
-    self.#traceLog(`updateEngineConfigOptions called from: ${caller}`);
+    self.#traceLog(`updateEngineConfigs called from: ${caller}`);
 
     try {
       await self.#constructorDone.promise;
       return await self.#engineUpdateConfigOptionsMutex.runExclusive(
         async () => {
-          self.#traceLog(
-            `updateEngineConfigOptions mutex acquired from: ${caller}`
-          );
+          self.#traceLog(`updateEngineConfigs mutex acquired from: ${caller}`);
           await self.#setEngineConfig(receivedEngineConfig);
-          await self.#setEngineOpts(receivedEngineOpts);
+          await self.#setEngineExtraConfig(receivedEngineExtraConfig);
         }
       );
     } catch (e: any) {
@@ -257,9 +259,14 @@ class Engine extends EngineProcessAPI {
     }
   }
 
+  /**
+   * internal API that sets the engine config.
+   * called from the constructor and updateEngineConfigs method
+   * @param receivedEngineConfig
+   */
   async #setEngineConfig(receivedEngineConfig: Partial<EngineConfig>) {
     let self = this;
-    self.#traceLog(`_setEngineConfig called from: ${getCaller()}`);
+    self.#traceLog(`#setEngineConfig called from: ${getCaller()}`);
 
     try {
       if (self.#isActive) {
@@ -270,13 +277,13 @@ class Engine extends EngineProcessAPI {
       if (this.#engineConfig === undefined) {
         this.#engineConfig = merge(
           {},
-          defaultEngineConfig,
+          config.engineConfig,
           receivedEngineConfig
         ); // deep merge
       } else {
         this.#engineConfig = merge(
           {},
-          defaultEngineConfig,
+          config.engineConfig, //.defaultEngineConfig,
           this.#engineConfig,
           receivedEngineConfig
         );
@@ -310,46 +317,71 @@ class Engine extends EngineProcessAPI {
         error: formatErrorForEvent(e),
         time: getISOStringLocalTz(),
       });
-      if (this.#engineConfig === undefined) {
-        this.#engineConfig = defaultEngineConfig;
-      }
+      // if (this.#engineConfig === undefined) {
+      //   this.#engineConfig = config.engineConfig; // as EngineConfig; //config.defaultEngineConfig as EngineConfig;
+      // }
     }
   }
 
-  async #setEngineOpts(receivedEngineOpts: {
-    isLocal?: boolean;
-    debugNamespace?: string;
-    handleProcessUncaughtException?: boolean;
-    handleProcessUnhandledRejection?: boolean;
-  }) {
+  /**
+   * internal API that sets the engine extraConfig.
+   * called from the constructor and updateEngineConfigs method
+   * @param receivedEngineExtraConfig
+   */
+  async #setEngineExtraConfig(
+    receivedEngineExtraConfig: Partial<EngineExtraConfig>
+  ) {
     let self = this;
-    self.#traceLog(
-      `_setEngineOpts called from: ${(new Error().stack as any)
-        .split("at ")[2]
-        .trim()}`
-    );
+    self.#traceLog(`#setEngineExtraConfig called from: ${getCaller()}`);
 
     try {
       if (self.#isActive) {
-        throw new Error("cannot set engineOpts on an active engine");
+        throw new Error("cannot set engineExtraConfig on an active engine");
       }
 
-      // take care of engineOpts
-      if (receivedEngineOpts === undefined) {
-        receivedEngineOpts = {};
+      // take care of engineExtraConfig
+      if (this.#engineExtraConfig === undefined) {
+        this.#engineExtraConfig = merge(
+          {},
+          config.engineExtraConfig,
+          receivedEngineExtraConfig
+        ); // deep merge
+      } else {
+        this.#engineExtraConfig = merge(
+          {},
+          config.engineExtraConfig, //.defaultEngineConfig,
+          this.#engineExtraConfig,
+          receivedEngineExtraConfig
+        );
       }
-      if (receivedEngineOpts.isLocal === undefined) {
-        receivedEngineOpts.isLocal = true;
-      }
-      if (receivedEngineOpts.handleProcessUncaughtException === undefined) {
-        receivedEngineOpts.handleProcessUncaughtException = true;
-      }
-      if (receivedEngineOpts.handleProcessUnhandledRejection === undefined) {
-        receivedEngineOpts.handleProcessUnhandledRejection = true;
-      }
+      // if (receivedEngineExtraConfig === undefined) {
+      //   receivedEngineExtraConfig = {};
+      // }
+      // if (receivedEngineExtraConfig.isLocal === undefined) {
+      //   receivedEngineExtraConfig.isLocal = true;
+      // }
+      // if (
+      //   receivedEngineExtraConfig.handleProcessUncaughtException === undefined
+      // ) {
+      //   receivedEngineExtraConfig.handleProcessUncaughtException = true;
+      // }
+      // if (
+      //   receivedEngineExtraConfig.handleProcessUnhandledRejection === undefined
+      // ) {
+      //   receivedEngineExtraConfig.handleProcessUnhandledRejection = true;
+      // }
 
-      // take care of unhandle
-      if (receivedEngineOpts.handleProcessUncaughtException) {
+      this.#debugLog(
+        "received engineExtraConfig:\n",
+        JSON.stringify(receivedEngineExtraConfig, null, 0)
+      );
+      this.#debugLog(
+        "sanitized engineExtraConfig created:\n",
+        JSON.stringify(this.#engineExtraConfig, null, 0)
+      );
+
+      // take care of unhandled exceptions
+      if (self.#engineExtraConfig.handleProcessUncaughtException) {
         process.on("uncaughtException", function (e: any) {
           self.emit(self.engineEvents["engine.fatal"], {
             msg: "uncaughtException was received, the engine will attempt to stop gracefully now",
@@ -358,7 +390,7 @@ class Engine extends EngineProcessAPI {
           });
         });
       }
-      if (receivedEngineOpts.handleProcessUnhandledRejection) {
+      if (self.#engineExtraConfig.handleProcessUnhandledRejection) {
         process.on("unhandledRejection", function (e: any) {
           self.emit(self.engineEvents["engine.fatal"], {
             msg: "unhandledRejection was received, the engine will attempt to stop gracefully now",
@@ -368,17 +400,12 @@ class Engine extends EngineProcessAPI {
         });
       }
 
-      this.#isLocal = receivedEngineOpts.isLocal;
-
-      if (receivedEngineOpts.debugNamespace === undefined) {
-        receivedEngineOpts.debugNamespace = "";
-      }
-      this.#debugNamespace = receivedEngineOpts.debugNamespace;
-      // add this._debugNamespace to existing debug namespace
-
-      if (this.#debugNamespace) {
+      // apply debugNamespace
+      if (this.#engineExtraConfig.debugNamespace) {
         let prevNamespaces = debug.disable();
-        debug.enable([prevNamespaces, this.#debugNamespace].join(","));
+        debug.enable(
+          [prevNamespaces, this.#engineExtraConfig.debugNamespace].join(",")
+        );
       }
     } catch (e: any) {
       self.emit(self.engineEvents["engine.warn"], {
@@ -437,19 +464,20 @@ class Engine extends EngineProcessAPI {
           return self;
         }
 
-        if (this.#isLocal) {
+        if (self.#engineExtraConfig.isLocal) {
           self.#debugLog("isLocal=true");
           /**
            * CHECK #1 checkExeExists
            */
-          // TODO: these must come from the config
-          let benthosTag = "v4.5.1"; // "v4.5.1"
-          let benthosVersion = "4.5.1"; //"4.5.1"
-          let benthosOS = "linux";
-          let benthosArch = "amd64";
-          let benthosArm = "";
-          let benthosFileName = `benthos_${benthosVersion}_${benthosOS}_${benthosArch}${benthosArm}`; // get this one from config as well if present
-          let benthosDir = "/tmp"; // TODO: these must come from the config
+          let benthosTag = "v" + self.#engineExtraConfig.benthosVersion; // "v4.5.1"
+          let benthosVersion = self.#engineExtraConfig.benthosVersion  //"4.5.1"
+          let benthosOS = self.#engineExtraConfig.benthosOS // || "linux";
+          let benthosArch = self.#engineExtraConfig.benthosArch // || "amd64";
+          // let benthosArm = ""; // we won't use benthosArm, instead benthosArch has the required values concatinated
+          let benthosFileName =
+            config.engineExtraConfig.benthosFileName ||
+            `benthos_${benthosVersion}_${benthosOS}_${benthosArch}`;
+          let benthosDir = config.engineExtraConfig.benthosDir;
           self.#benthosEXEFullPath = path.join(benthosDir, benthosFileName);
           let benthosArchiveFullPath = path.join(
             benthosDir,
@@ -457,7 +485,8 @@ class Engine extends EngineProcessAPI {
           );
 
           try {
-            fs.statSync(self.#benthosEXEFullPath);
+            await fs.promises.stat(self.#benthosEXEFullPath);
+            // fs.statSync(self.#benthosEXEFullPath);
             self.#debugLog(
               `${self.#benthosEXEFullPath} exists. will be using it.`
             );
@@ -488,7 +517,8 @@ class Engine extends EngineProcessAPI {
                   benthosFileName
                 )}`
               );
-              fs.chmodSync(self.#benthosEXEFullPath, "0777");
+              await fs.promises.chmod(self.#benthosEXEFullPath, "0777");
+              // fs.chmodSync(self.#benthosEXEFullPath, "0777");
               self.#debugLog(`benthos installation completed`);
             } catch (e: any) {
               self.emit(self.engineEvents["engine.fatal"], {
@@ -575,7 +605,7 @@ class Engine extends EngineProcessAPI {
           }
 
           // write the engine config at this point
-          this.#writeToEngineConfigFilePath();
+          Engine.#writeToEngineConfigFilePath.call(self);
 
           // self._engineProcess = execaCommand(`benthos -c ${self._engineConfigFilePath} streams`, {
           self.#engineProcess = execaCommand(
@@ -819,9 +849,10 @@ class Engine extends EngineProcessAPI {
         self.#debugLog("removing all streams before stopping");
         await self.remove();
 
-        if (self.#isLocal) {
+        if (self.#engineExtraConfig.isLocal) {
           // remove the engine config file
-          fs.unlinkSync(self.#engineConfigFilePath);
+          await fs.promises.unlink(self.#engineConfigFilePath);
+          // fs.unlinkSync(self.#engineConfigFilePath);
 
           if (force) {
             self.#abortController.abort();
@@ -1197,7 +1228,7 @@ class Engine extends EngineProcessAPI {
     }
   }
 
-  #writeToEngineConfigFilePath() {
+  static #writeToEngineConfigFilePath(this: Engine) {
     let self = this;
     let caller = getCaller();
     self.#traceLog(`writeToEngineConfigFilePath called from: ${caller}`);
@@ -1222,152 +1253,61 @@ class Engine extends EngineProcessAPI {
     }
   }
 
-  public useDefaultEventHandler() {
+  /**
+   * The default event hander prints all events on the console/stdout. Additionally, it:
+   * - stops the stream on receiving an "engineProcess.stream.error" event 5 times
+   * @param this Engine
+   * @param eventName the name of the event
+   * @param eventObj the event object of type EventObj containing event information
+   */
+  static #defaultEngineEventHandler = (function () {
+    let streamErrorCounter: { [streamID: string]: any } = {}; // streamID to count
+    return function (
+      this: Engine,
+      eventName: string | string[],
+      eventObj: EventObj
+    ) {
+      let self = this;
+
+      try {
+        if (eventName === "engineProcess.stream.error") {
+          let streamID: string;
+          if (eventObj.stream && eventObj.stream.streamID) {
+            streamID = eventObj.stream.streamID;
+          } else {
+            streamID = "unknown";
+          }
+          console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+          streamErrorCounter[streamID] = streamErrorCounter[streamID] || 0;
+          streamErrorCounter[streamID] = streamErrorCounter[streamID] + 1;
+          if (streamErrorCounter[streamID] === 5 && eventObj.stream) {
+            // remove the stream if error received 5 times
+            self.remove(eventObj.stream);
+          }
+        } else {
+          console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
+        }
+      } catch (e: any) {
+        self.emit(self.engineEvents["engine.error"], {
+          msg: `defaultEngineEventHandler unabel to handle events`,
+          error: formatErrorForEvent(e),
+          time: getISOStringLocalTz(),
+        });
+      }
+    };
+  })();
+
+  /**
+   * use the default event handler, and optinally provide additional event handlers for custom logic
+   * @param addnEventHandlers
+   */
+  public useDefaultEventHandler(
+    addnEventHandlers: { [eventName: string]: ListenerFn } = {}
+  ) {
     let self = this;
-    self.onAny(defaultEngineEventHandler.bind(self));
-  }
-}
-
-// TODO: mark optinal props with a  '?'
-interface EngineConfig {
-  http: {
-    address: string;
-    enabled: true;
-    root_path: string;
-    debug_endpoints: boolean;
-    cert_file: string;
-    key_file: string;
-    cors: {
-      enabled: boolean;
-      allowed_origins: string[];
-    };
-  };
-  logger: {
-    level:
-      | "FATAL"
-      | "ERROR"
-      | "WARN"
-      | "INFO"
-      | "DEBUG"
-      | "TRACE"
-      | "OFF"
-      | "ALL"
-      | "NONE";
-    format: "json" | "logfmt";
-    add_timestamp?: boolean;
-    static_fields?: {
-      "@pwrdby": "exthos";
-    };
-  };
-  metrics:
-    | {
-        prometheus: {
-          // TODO: add all props and make them optional
-        };
-        mapping: string;
-      }
-    | {
-        json_api: {};
-        mapping: string;
-      }
-    | {
-        aws_cloudwatch: {
-          a: 1;
-        };
-        mapping: string;
-      }
-    | {
-        logger: {
-          push_interval: string;
-          flush_metrics: boolean;
-        };
-        mapping: string;
-      };
-  tracer:
-    | {
-        none: {};
-      }
-    | {
-        jaeger: {
-          aggent_address: string;
-          collector_url: string;
-          sampler_type: "const";
-          flush_interval: string;
-        };
-      };
-  shutdown_timeout: string;
-}
-
-let defaultEngineConfig: EngineConfig = {
-  http: {
-    address: "0.0.0.0:4195",
-    enabled: true,
-    root_path: "/exthos",
-    debug_endpoints: false,
-    cert_file: "",
-    key_file: "",
-    cors: {
-      enabled: false,
-      allowed_origins: [],
-    },
-  },
-  logger: {
-    level: "INFO",
-    format: "json",
-    add_timestamp: true,
-    static_fields: {
-      "@pwrdby": "exthos",
-    },
-  },
-  metrics: {
-    prometheus: {},
-    mapping: "",
-  },
-  tracer: {
-    none: {},
-  },
-  shutdown_timeout: "20s",
-};
-
-let streamErrorCounter: { [streamID: string]: any } = {}; // streamID to count
-
-/**
- * The default event hander prints all events on the console/stdout. Additionally, it:
- * - stops the stream on receiving an "engineProcess.stream.error" event 5 times
- * @param this Engine
- * @param eventName the name of the event
- * @param eventObj the event object of type EventObj containing event information
- */
-function defaultEngineEventHandler(
-  this: Engine,
-  eventName: string | string[],
-  eventObj: EventObj
-) {
-  let self = this;
-
-  try {
-    if (eventName === "engineProcess.stream.error") {
-      let streamID: string;
-      if (eventObj.stream && eventObj.stream.streamID) {
-        streamID = eventObj.stream.streamID;
-      } else {
-        streamID = "unknown";
-      }
-      console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
-      streamErrorCounter[streamID] = streamErrorCounter[streamID] || 0;
-      streamErrorCounter[streamID] = streamErrorCounter[streamID] + 1;
-      if (streamErrorCounter[streamID] === 5 && eventObj.stream) {
-        // remove the stream if error received 5 times
-        self.remove(eventObj.stream);
-      }
-    } else {
-      console.log(`<event>${eventName}>${JSON.stringify(eventObj)}`);
-    }
-  } catch (e: any) {
-    self.emit(self.engineEvents["engine.error"], {
-      msg: `defaultEngineEventHandler unabel to handle events`,
-      error: formatErrorForEvent(e),
-      time: getISOStringLocalTz(),
+    self.onAny(Engine.#defaultEngineEventHandler.bind(self));
+    Object.keys(addnEventHandlers).forEach((eventName) => {
+      self.on(eventName, addnEventHandlers[eventName]);
     });
   }
 }

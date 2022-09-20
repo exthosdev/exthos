@@ -41,7 +41,7 @@ class Stream {
     return this.#streamConfig;
   }
   set streamConfig(s: TStreamConfig) {
-    this.#streamConfig = this.#sanitizeStreamConfig(s);
+    this.#streamConfig = Stream.#sanitizeStreamConfig.call(this, s);
   }
 
   get inport() {
@@ -61,9 +61,9 @@ class Stream {
     }
   }
 
-  createOutport() {
+  createOutport(this: Stream) {
     let self = this;
-    if (!this.#outport) {
+    if (!self.#outport) {
       // create outport on stream in js-land if not already created
       this.#outport = nanomsg.socket("pull");
       this.#outport.bind(`ipc:///tmp/${self.streamID}.outport.sock`);
@@ -76,7 +76,7 @@ class Stream {
       JSON.stringify(streamConfig, null, 0)
     );
 
-    this.#streamConfig = this.#sanitizeStreamConfig(streamConfig);
+    this.#streamConfig = Stream.#sanitizeStreamConfig.call(this, streamConfig);
 
     this.#debugLog(
       "sanitized streamConfig:\n",
@@ -97,7 +97,7 @@ class Stream {
         let proms: Promise<any>[] = [];
         // write any JS files if needed
         Object.keys(self.#JSFilesToWrite).forEach((jsFile) => {
-          let unWrapedCode = wrapJSCode(self.#JSFilesToWrite[jsFile]);
+          let unWrapedCode = Stream.#wrapJSCode(self.#JSFilesToWrite[jsFile]);
           self.#debugLog("writing javascript to file:", jsFile);
           proms.push(fs.promises.writeFile(jsFile, unWrapedCode));
         });
@@ -109,28 +109,14 @@ class Stream {
   }.apply(this);
 
   /**
-   * this method must be called by engine before deploying the stream
-   */
-  async _prepare() {
-    let self = this;
-
-    let proms: Promise<any>[] = [];
-    // write any JS files if needed
-    Object.keys(self.#JSFilesToWrite).forEach((jsFile) => {
-      let unWrapedCode = wrapJSCode(self.#JSFilesToWrite[jsFile]);
-      self.#debugLog("writing javascript to file:", jsFile);
-      proms.push(fs.promises.writeFile(jsFile, unWrapedCode));
-    });
-
-    return await Promise.all(proms);
-  }
-
-  /**
    * takes in a streamConfig, create a copy to mutate and performs the replaceValue and replaceKey operations
    * @param receivedStreamConfig
    * @returns
    */
-  #sanitizeStreamConfig(receivedStreamConfig: TStreamConfig): TStreamConfig {
+  static #sanitizeStreamConfig(
+    this: Stream,
+    receivedStreamConfig: TStreamConfig
+  ): TStreamConfig {
     let self = this;
 
     let streamConfig = merge({}, receivedStreamConfig);
@@ -297,34 +283,35 @@ class Stream {
     });
     return streamConfig;
   }
+
+  static #wrapJSCode(jscode: string): string {
+    return `//js code autocreated by exthos
+      try {
+          process.stdin.setEncoding('utf8');
+          process.stdout.setEncoding('utf8');
+          
+          var lineReader = require('readline').createInterface({
+              input: process.stdin
+          });
+          lineReader.on('line', function (msg) {
+              try{
+                  msg = JSON.parse(msg.toString())
+                  ;(()=>{
+                      let console = null
+                      let process = null
+                      ${jscode}
+                  })();
+                  console.log(JSON.stringify(msg))
+              } catch(e) {
+                  console.error(e)
+              }
+          });
+      } catch (e) {
+          console.error(e.message)
+      }`;
+  }
 }
 
-function wrapJSCode(jscode: string): string {
-  return `//js code autocreated by exthos
-    try {
-        process.stdin.setEncoding('utf8');
-        process.stdout.setEncoding('utf8');
-        
-        var lineReader = require('readline').createInterface({
-            input: process.stdin
-        });
-        lineReader.on('line', function (msg) {
-            try{
-                msg = JSON.parse(msg.toString())
-                ;(()=>{
-                    let console = null
-                    let process = null
-                    ${jscode}
-                })();
-                console.log(JSON.stringify(msg))
-            } catch(e) {
-                console.error(e)
-            }
-        });
-    } catch (e) {
-        console.error(e.message)
-    }`;
-}
 export { Stream };
 
 // quick testing
@@ -351,5 +338,6 @@ export { Stream };
 
 //         ]
 //     },
-//     output: { stdout: {} }
+//     // output: { stdout: {} }
+//     output: {file: {path: "", codec: "all-bytes"}}
 // })

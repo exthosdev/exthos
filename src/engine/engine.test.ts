@@ -13,7 +13,7 @@ describe("engine start stop", () => {
       );
     }
   });
-  engine.updateEngineConfigOptions({
+  engine.updateEngineConfigs({
     logger: { level: "NONE", format: "json" },
   });
 

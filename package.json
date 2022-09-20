@@ -26,7 +26,7 @@
     "bumppatchit": "npm version --no-git-tag-version patch",
     "sitebuildit": "typedoc src/ --media ./media",
     "siteserveit": "http-server ./docs",
-    "prettyit": "prettier --write src/"
+    "prettyit": "prettier --write src/ && prettier --write examples/"
   },
   "keywords": [
     "exthos",

@@ -1,6 +1,6 @@
-import { TInput } from "./inputs.js"
-import { TOutput } from "./outputs.js"
-import { TProcessor } from "./processors.js"
+import { TInput } from "./inputs.js";
+import { TOutput } from "./outputs.js";
+import { TProcessor } from "./processors.js";
 
 // type TStreamConfig = {
 //     input: TInput,
@@ -12,12 +12,12 @@ import { TProcessor } from "./processors.js"
 // }
 
 interface TStreamConfig {
-    input: TInput,
-    output: TOutput,
-    pipeline?: {
-        threads?: number
-        processors: TProcessor[]
-    }
+  input: TInput;
+  output: TOutput;
+  pipeline?: {
+    threads?: number;
+    processors: TProcessor[];
+  };
 }
 
-export {TStreamConfig}
+export { TStreamConfig };

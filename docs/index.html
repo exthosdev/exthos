@@ -19,16 +19,42 @@
 <p>stream processing in NodeJS using the power of Golang</p>
 </blockquote>
 
+<a href="#project-status" id="project-status" style="color: inherit; text-decoration: none;">
+  <h2>Project status</h2>
+</a>
+<p>exthos is <code>incubating</code>, i.e. while the feature list implementation is a WIP, the project <strong>can be used in production with existing features</strong></p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Status</th>
+<th>Comments</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Low level APIs</td>
+<td>Stable</td>
+<td>Not all components are implemented yet</td>
+</tr>
+<tr>
+<td>High level APIs</td>
+<td>Early days</td>
+<td>The API is not stable and far for being complete. Use with caution</td>
+</tr>
+</tbody></table>
+
 <a href="#website" id="website" style="color: inherit; text-decoration: none;">
   <h2>Website</h2>
 </a>
 <p><a href="https://exthosdev.github.io/exthos/">exthos</a></p>
+<p>Click to <a href="#in-practice">Jump staight to installation and usage</a></p>
 
 <a href="#table-of-contents" id="table-of-contents" style="color: inherit; text-decoration: none;">
   <h2>Table of Contents</h2>
 </a>
 <ul>
 <li><a href="#exthos">exthos</a><ul>
+<li><a href="#project-status">Project status</a></li>
 <li><a href="#website">Website</a></li>
 <li><a href="#table-of-contents">Table of Contents</a></li>
 </ul>
@@ -55,6 +81,7 @@
 <li><a href="#usage">Usage</a></li>
 <li><a href="#using-high-level-apis-fromviato">Using high level APIs: from/via/to</a></li>
 <li><a href="#othernon-functional-features">Other/non-functional features</a><ul>
+<li><a href="#configuration">Configuration</a></li>
 <li><a href="#labels">Labels</a></li>
 <li><a href="#error-handling">Error handling</a></li>
 <li><a href="#logging">Logging</a></li>
@@ -65,7 +92,6 @@
 </li>
 </ul>
 </li>
-<li><a href="#project-status">Project status</a></li>
 <li><a href="#compatability--support">Compatability &amp; Support</a></li>
 <li><a href="#acknowledgement">Acknowledgement</a></li>
 </ul>
@@ -194,11 +220,30 @@ Each message contains three parts:</p>
   <h2>Other/non-functional features</h2>
 </a>
 
+<a href="#configuration" id="configuration" style="color: inherit; text-decoration: none;">
+  <h3>Configuration</h3>
+</a>
+<p>Like any application, exthos relies of some smart defaults but at the same time empowers the users to provide their own configuration via a <code>config file</code> or <code>environment variables</code>.</p>
+<p>The order or precedence is as follows:</p>
+<ol>
+<li>default configuration as defined under <code>config/config.default.ts</code></li>
+<li>overwritten by any matching keys in <code>exthos.config.json</code> placed in the CWD (Current Working Directory: usually where you project root is)</li>
+<li>overwritten by any matching keys in environment variables prefixed with <code>EXTHOS_</code> e.g.<ol>
+<li><code>EXTHOS_engineExtraConfig_benthosDir=/tmp/test</code></li>
+<li><code>EXTHOS_engineConfig_logger_level=TRACE</code></li>
+</ol>
+</li>
+<li>overwritten by parameters sent to constructor via <code>new Engine({&lt;engineConfig&gt;}, {&lt;extraEngineConfig&gt;})</code></li>
+</ol>
+<p>e.g. to use your pre-installed version of benthos create a file named <code>exthos.config.json</code> on CWD with the following content:</p>
+<pre><code class="language-json"><span class="hl-2">{</span><br/><span class="hl-2">    </span><span class="hl-7">&quot;engineExtraConfig&quot;</span><span class="hl-2">: {</span><br/><span class="hl-2">        </span><span class="hl-7">&quot;benthosDir&quot;</span><span class="hl-2">: </span><span class="hl-4">&quot;&quot;</span><span class="hl-2">,</span><br/><span class="hl-2">        </span><span class="hl-7">&quot;benthosFileName&quot;</span><span class="hl-2">: </span><span class="hl-4">&quot;benthos&quot;</span><br/><span class="hl-2">    }</span><br/><span class="hl-2">}</span>
+</code></pre>
+
 <a href="#labels" id="labels" style="color: inherit; text-decoration: none;">
   <h3>Labels</h3>
 </a>
 <blockquote>
-<p>this secions covers <code>llapis</code> only</p>
+<p>this section covers <code>llapis</code> only</p>
 </blockquote>
 <p>Labels can be optionally assigned to all components. They aid in debugging and tracing.
 The labels will be sanitised by the stream instace to follow the following rules:</p>
@@ -313,7 +358,7 @@ The labels will be sanitised by the stream instace to follow the following rules
 <li><code>engine.onAny((eventName, eventObj) =&gt; {...})</code> - listens to all events geenrated by the engine and allows you to handle them at one place</li>
 </ul>
 </li>
-<li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler()</code><ul>
+<li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler(addnCustomHandler)</code><ul>
 <li>the default event hander prints all events on the console/stdout,</li>
 <li>stops the stream on receiving an &quot;engineProcess.stream.error&quot; event 5 times</li>
 </ul>
@@ -434,11 +479,6 @@ The labels will be sanitised by the stream instace to follow the following rules
   <h3>Tracing and Telemetry</h3>
 </a>
 <p>Coming soon.</p>
-
-<a href="#project-status" id="project-status" style="color: inherit; text-decoration: none;">
-  <h1>Project status</h1>
-</a>
-<p>exthos is under heavy development, but <strong>ready to be used in production for light usage</strong></p>
 
 <a href="#compatability-amp-support" id="compatability-amp-support" style="color: inherit; text-decoration: none;">
   <h1>Compatability &amp; Support</h1>

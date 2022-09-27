@@ -1,5 +1,6 @@
 {
   "name": "exthos",
+  "version": "0.2.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/exthosdev/exthos.git"
@@ -9,7 +10,6 @@
   },
   "homepage": "https://github.com/exthosdev/exthos.git",
   "type": "module",
-  "version": "0.2.1",
   "description": "stream processing in nodejs using the power of golang",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,8 @@
     "bumpminorit": "npm version --no-git-tag-version minor",
     "bumppatchit": "npm version --no-git-tag-version patch",
     "sitebuildit": "typedoc src/ --media ./media",
-    "siteserveit": "http-server ./docs"
+    "siteserveit": "http-server ./docs",
+    "prettyit": "prettier --write src/ && prettier --write examples/"
   },
   "keywords": [
     "exthos",
@@ -46,6 +47,7 @@
     "@types/node": "^18.7.13",
     "http-server": "^14.1.1",
     "jest": "^28.1.1",
+    "prettier": "^2.7.1",
     "ts-jest": "^28.0.5",
     "typedoc": "^0.23.11",
     "typescript": "^4.7.4"

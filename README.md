@@ -4,13 +4,25 @@
 
 > stream processing in NodeJS using the power of Golang
 
+## Project status
+
+exthos is `incubating`, i.e. while the feature list implementation is a WIP, the project **can be used in production with existing features**
+
+|API|Status|Comments|
+|--|--|--|
+|Low level APIs|Stable|Not all components are implemented yet|
+|High level APIs|Early days|The API is not stable and far for being complete. Use with caution|
+
 ## Website
 
 [exthos](https://exthosdev.github.io/exthos/)
 
+Click to [Jump staight to installation and usage](#in-practice)
+
 ## Table of Contents
 
 - [exthos](#exthos)
+  - [Project status](#project-status)
   - [Website](#website)
   - [Table of Contents](#table-of-contents)
 - [Theory](#theory)
@@ -29,13 +41,13 @@
   - [Usage](#usage)
   - [Using high level APIs: from/via/to](#using-high-level-apis-fromviato)
   - [Other/non-functional features](#othernon-functional-features)
+    - [Configuration](#configuration)
     - [Labels](#labels)
     - [Error handling](#error-handling)
     - [Logging](#logging)
     - [Events](#events)
     - [Metrics](#metrics)
     - [Tracing and Telemetry](#tracing-and-telemetry)
-- [Project status](#project-status)
 - [Compatability & Support](#compatability--support)
 - [Acknowledgement](#acknowledgement)
 
@@ -162,9 +174,33 @@ For more examples refer to: [examples dir]([/examples/hlapis/README.md](https://
 
 ## Other/non-functional features
 
+### Configuration
+
+Like any application, exthos relies of some smart defaults but at the same time empowers the users to provide their own configuration via a `config file` or `environment variables`.
+
+The order or precedence is as follows:
+
+1. default configuration as defined under `config/config.default.ts`
+2. overwritten by any matching keys in `exthos.config.json` placed in the CWD (Current Working Directory: usually where you project root is)
+3. overwritten by any matching keys in environment variables prefixed with `EXTHOS_` e.g.
+   1. `EXTHOS_engineExtraConfig_benthosDir=/tmp/test`
+   2. `EXTHOS_engineConfig_logger_level=TRACE`
+4. overwritten by parameters sent to constructor via `new Engine({<engineConfig>}, {<extraEngineConfig>})`
+
+e.g. to use your pre-installed version of benthos create a file named `exthos.config.json` on CWD with the following content:
+
+```json
+{
+    "engineExtraConfig": {
+        "benthosDir": "",
+        "benthosFileName": "benthos"
+    }
+}
+```
+
 ### Labels
 
-> this secions covers `llapis` only
+> this section covers `llapis` only
 
 Labels can be optionally assigned to all components. They aid in debugging and tracing.
 The labels will be sanitised by the stream instace to follow the following rules:
@@ -224,7 +260,7 @@ The following namespaces are available within `exthos`:
 - You could provide your own event handling functions (actions/handlers) using any of the following. For even more options on how to handle events refer to [EventEmitter2](https://github.com/hij1nx/EventEmitter2#readme) documentation
   - `engine.on("<eventName>", (eventObj) => {...})`
   - `engine.onAny((eventName, eventObj) => {...})` - listens to all events geenrated by the engine and allows you to handle them at one place
-- Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler()`
+- Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler(addnCustomHandler)`
   - the default event hander prints all events on the console/stdout,
   - stops the stream on receiving an "engineProcess.stream.error" event 5 times
 
@@ -259,10 +295,6 @@ Coming soon.
 ### Tracing and Telemetry
 
 Coming soon.
-
-# Project status
-
-exthos is under heavy development, but **ready to be used in production for light usage**
 
 # Compatability & Support
 

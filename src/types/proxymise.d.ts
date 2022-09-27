@@ -1,1 +1,1 @@
-declare module "proxymise"
+declare module "proxymise";

@@ -152,6 +152,7 @@ abstract class EngineProcessAPI extends EventEmitter2 {
     let self = this;
     return await self._engineProcessMutex.runExclusive(async () => {
       try {
+        await stream.afterRemove();
         let resp = await self._axiosInstance.delete(
           `/streams/${stream.streamID}`,
           axiosReqConfig

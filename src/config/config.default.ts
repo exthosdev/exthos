@@ -21,7 +21,7 @@ let config: {
     handleProcessUncaughtException: true,
     handleProcessUnhandledRejection: true,
     benthosDir: "/tmp",
-    benthosFileName: "", // if provided overwrites: benthosVersion, benthosOS &
+    benthosFileName: "", // if benthosFileName is provided following are not used: benthosVersion, benthosOS & benthosArch
     benthosVersion: "4.5.1",
     benthosOS: "linux",
     benthosArch: "amd64",

@@ -180,12 +180,23 @@ Like any application, exthos relies of some smart defaults but at the same time 
 
 The order or precedence is as follows:
 
-1. default configuration as defined under `config/config.default.js`
-2. overwritten by any matching keys in `config.js` placed in the CWD (Current Working Directory: usually where you project root is)
+1. default configuration as defined under `config/config.default.ts`
+2. overwritten by any matching keys in `exthos.config.json` placed in the CWD (Current Working Directory: usually where you project root is)
 3. overwritten by any matching keys in environment variables prefixed with `EXTHOS_` e.g.
    1. `EXTHOS_engineExtraConfig_benthosDir=/tmp/test`
    2. `EXTHOS_engineConfig_logger_level=TRACE`
 4. overwritten by parameters sent to constructor via `new Engine({<engineConfig>}, {<extraEngineConfig>})`
+
+e.g. to use your pre-installed version of benthos create a file named `exthos.config.json` on CWD with the following content:
+
+```json
+{
+    "engineExtraConfig": {
+        "benthosDir": "",
+        "benthosFileName": "benthos"
+    }
+}
+```
 
 ### Labels
 

@@ -1,4 +1,3 @@
-// import { execaCommand, ExecaChildProcess } from 'execa';
 import { defaultInputValues } from "../defaults/defaultInputValues.js";
 import { defaultOutputValues } from "../defaults/defaultOutputValues.js";
 import * as path from "path";
@@ -16,10 +15,6 @@ import { TOutput } from "../types/outputs.js";
 import { TProcessor } from "../types/processors.js";
 
 class Stream {
-  readonly #streamConfigFilePath: string = path.join(
-    tmpdir(),
-    "exthos_stream_conf_" + randomUUID() + ".json"
-  );
   #streamConfig: TStreamConfig;
   hasInport: boolean = false;
   hasOutport: boolean = false;
@@ -32,10 +27,6 @@ class Stream {
 
   public readonly streamID: string = randomUUID();
   // public active uptime uptime_str TODO. these should be part of the stream
-
-  get streamConfigFilePath(): string {
-    return this.#streamConfigFilePath;
-  }
 
   get streamConfig(): TStreamConfig {
     return this.#streamConfig;
@@ -100,6 +91,25 @@ class Stream {
           let unWrapedCode = Stream.#wrapJSCode(self.#JSFilesToWrite[jsFile]);
           self.#debugLog("writing javascript to file:", jsFile);
           proms.push(fs.promises.writeFile(jsFile, unWrapedCode));
+        });
+
+        return await Promise.all(proms);
+      }
+      return await Promise.all([]);
+    };
+  }.apply(this);
+
+  afterRemove = function (this: Stream) {
+    let self = this;
+    var executed = false;
+    return async function () {
+      if (!executed) {
+        executed = true;
+        let proms: Promise<any>[] = [];
+        // write any JS files if needed
+        Object.keys(self.#JSFilesToWrite).forEach((jsFile) => {
+          self.#debugLog("removing javascript to file:", jsFile);
+          proms.push(fs.promises.unlink(jsFile));
         });
 
         return await Promise.all(proms);

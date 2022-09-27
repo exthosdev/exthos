@@ -15,20 +15,21 @@ Object.defineProperty(config, "debugLog", {
 /**
  * `config.refresh` can be used to refresh the config as and when required
  * config merging process
- * defaults --overwrittenby--> config.js -> process.env["EXTHOS_xxx"]
+ * defaults --overwrittenby--> exthos.config.json -> process.env["EXTHOS_xxx"]
  */
 (config as any)["refresh"] = function () {
   let config = this;
   try {
-    let configFile = readFileSync("./config.js");
+    let configFile = readFileSync("./exthos.config.json");
+
     merge(config, JSON.parse(configFile.toString()));
-    config.debugLog("successfully merged ./config.js");
+    config.debugLog("successfully merged ./exthos.config.json");
   } catch (e: any) {
     if (e.code === "ENOENT") {
-      config.debugLog("./config.js not present");
+      config.debugLog("./exthos.config.json not present");
     } else {
       // file exists
-      config.debugLog("failed to merge ./config.js", {
+      config.debugLog("failed to merge ./exthos.config.json", {
         error: formatErrorForEvent(e),
       });
     }
@@ -43,9 +44,7 @@ Object.defineProperty(config, "debugLog", {
         // (toMerge as any)[toMergeKey] = process.env[k];
         toMerge = nanojq.set(toMerge, toMergeKey, process.env[k]);
       });
-    console.log("!!!1", config, toMerge);
     merge(config, toMerge);
-    console.log("!!!2", config);
     config.debugLog("successfully merged env variables EXTHOS_*");
   } catch (e: any) {
     config.debugLog("failed to merge env variables EXTHOS_*", {

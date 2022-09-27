@@ -1,5 +1,6 @@
+import * as constants from "../constants.js";
 import * as path from "path";
-import { tmpdir } from "os";
+import { tmpdir, EOL } from "os";
 import * as fs from "fs";
 import { randomUUID } from "crypto";
 import {
@@ -470,10 +471,11 @@ class Engine extends EngineProcessAPI {
            * CHECK #1 checkExeExists
            */
           let benthosTag = "v" + self.#engineExtraConfig.benthosVersion; // "v4.5.1"
-          let benthosVersion = self.#engineExtraConfig.benthosVersion  //"4.5.1"
-          let benthosOS = self.#engineExtraConfig.benthosOS // || "linux";
-          let benthosArch = self.#engineExtraConfig.benthosArch // || "amd64";
+          let benthosVersion = self.#engineExtraConfig.benthosVersion; //"4.5.1"
+          let benthosOS = self.#engineExtraConfig.benthosOS; // || "linux";
+          let benthosArch = self.#engineExtraConfig.benthosArch; // || "amd64";
           // let benthosArm = ""; // we won't use benthosArm, instead benthosArch has the required values concatinated
+          // if benthosFileName is provided following are not used: benthosVersion, benthosOS & benthosArch
           let benthosFileName =
             config.engineExtraConfig.benthosFileName ||
             `benthos_${benthosVersion}_${benthosOS}_${benthosArch}`;
@@ -484,53 +486,116 @@ class Engine extends EngineProcessAPI {
             benthosFileName + ".tar.gz"
           );
 
-          try {
-            await fs.promises.stat(self.#benthosEXEFullPath);
-            // fs.statSync(self.#benthosEXEFullPath);
-            self.#debugLog(
-              `${self.#benthosEXEFullPath} exists. will be using it.`
-            );
-          } catch (e) {
+          if (!config.engineExtraConfig.benthosFileName) {
+            // benthosFileName was not provided so will download if not present
+
             try {
-              let benthosURL = `https://github.com/benthosdev/benthos/releases/download/${benthosTag}/${
-                benthosFileName + ".tar.gz"
-              }`;
-              self.#debugLog(`${self.#benthosEXEFullPath} doesnt exist`);
-              self.#debugLog(`downloading archive from: ${benthosURL}`);
-              let resp: AxiosResponse<any, any>;
+              await fs.promises.stat(self.#benthosEXEFullPath);
+              self.#debugLog(
+                `${self.#benthosEXEFullPath} exists and will be using it.`
+              );
+            } catch (e) {
+              self.#debugLog(`${self.#benthosEXEFullPath} doesn't exist`);
               try {
-                resp = await axios.get(benthosURL, { responseType: "stream" });
+                let benthosURL = `https://github.com/benthosdev/benthos/releases/download/${benthosTag}/${
+                  benthosFileName + ".tar.gz"
+                }`;
+                self.#debugLog(`downloading archive from: ${benthosURL}`);
+                let resp: AxiosResponse<any, any>;
+                try {
+                  resp = await axios.get(benthosURL, {
+                    responseType: "stream",
+                  });
+                } catch (e: any) {
+                  throw standardizeAxiosErrors(e);
+                }
+                await streamPromises.pipeline(
+                  resp.data,
+                  fs.createWriteStream(benthosArchiveFullPath)
+                );
+                self.#debugLog(`extracting archive ${benthosArchiveFullPath}`);
+                execaCommandSync(
+                  `tar xzvf ${benthosArchiveFullPath} -C ${benthosDir} benthos`
+                );
+                execaCommandSync(
+                  `mv ${path.join(benthosDir, "benthos")} ${path.join(
+                    benthosDir,
+                    benthosFileName
+                  )}`
+                );
+                await fs.promises.chmod(self.#benthosEXEFullPath, "0777");
+                // fs.chmodSync(self.#benthosEXEFullPath, "0777");
+                self.#debugLog(`benthos installation completed`);
               } catch (e: any) {
-                throw standardizeAxiosErrors(e);
+                self.emit(self.engineEvents["engine.fatal"], {
+                  msg: "benthos cannot be installed",
+                  error: formatErrorForEvent(e),
+                  time: getISOStringLocalTz(),
+                }); // TODO: change to error along with the 3
+                return self;
               }
-              await streamPromises.pipeline(
-                resp.data,
-                fs.createWriteStream(benthosArchiveFullPath)
-              );
-              self.#debugLog(`extracting archive ${benthosArchiveFullPath}`);
-              execaCommandSync(
-                `tar xzvf ${benthosArchiveFullPath} -C ${benthosDir} benthos`
-              );
-              execaCommandSync(
-                `mv ${path.join(benthosDir, "benthos")} ${path.join(
-                  benthosDir,
-                  benthosFileName
-                )}`
-              );
-              await fs.promises.chmod(self.#benthosEXEFullPath, "0777");
-              // fs.chmodSync(self.#benthosEXEFullPath, "0777");
-              self.#debugLog(`benthos installation completed`);
-            } catch (e: any) {
-              self.emit(self.engineEvents["engine.fatal"], {
-                msg: "benthos cannot be installed",
-                error: formatErrorForEvent(e),
-                time: getISOStringLocalTz(),
-              }); // TODO: change to error along with the 3
-              return self;
             }
           }
+
           /**
-           * CHECK #2 tempLocalServer check
+           * CHECK #2 benthos version is supported by exthos
+           */
+          let versionRequiredMinArray =
+            constants.minBenthosVSupported.split(".");
+          let versionRequiredMin: {
+            major: number;
+            minor: number;
+            patch: number;
+          } = {
+            major: parseInt(versionRequiredMinArray[0], 10),
+            minor: parseInt(versionRequiredMinArray[1], 10),
+            patch: parseInt(versionRequiredMinArray[2], 10),
+          };
+
+          // let versionPresent: { major: number; minor: number; patch: number };
+          try {
+            let versionPresentArray = execaCommandSync(
+              `${self.#benthosEXEFullPath} -v`
+            )
+              .stdout.split(EOL)[0]
+              .split(": ")[1]
+              .split(".");
+            let versionPresent = {
+              major: parseInt(versionPresentArray[0], 10),
+              minor: parseInt(versionPresentArray[1], 10),
+              patch: parseInt(versionPresentArray[2], 10),
+            };
+
+            if (
+              !(
+                versionPresent.major === versionRequiredMin.major &&
+                (versionPresent.minor > versionRequiredMin.minor ||
+                  (versionPresent.minor === versionRequiredMin.minor &&
+                    versionPresent.patch >= versionRequiredMin.patch))
+              )
+            ) {
+              throw new Error(
+                `benthos version ${versionPresentArray.join(
+                  "."
+                )} is not supported by exthos. exthos supports MINOR versions greater than equal to ${versionRequiredMinArray.join(
+                  "."
+                )}`
+              );
+            }
+            self.#debugLog(
+              `using benthos version: ${versionPresentArray.join(".")}`
+            );
+          } catch (e: any) {
+            self.emit(self.engineEvents["engine.fatal"], {
+              msg: `benthos cannot be used`,
+              error: formatErrorForEvent(e),
+              time: getISOStringLocalTz(),
+            });
+            return self;
+          }
+
+          /**
+           * CHECK #3 tempLocalServer check
            */
           try {
             // check if address is local and we can bind to it
@@ -620,28 +685,6 @@ class Engine extends EngineProcessAPI {
             }
           );
 
-          self.#engineProcess.catch((e) => {
-            if (e.killed && e.isCanceled) {
-              // abort was used
-              self.emit(self.engineEvents["engine.inactive"], {
-                msg: "aborted successfully",
-                time: getISOStringLocalTz(),
-              });
-            } else if (e.all) {
-              self.emit(self.engineEvents["engine.fatal"], {
-                msg: "engineProcess exited unexpectedly (1)",
-                error: formatErrorForEvent(e),
-                time: getISOStringLocalTz(),
-              });
-            } else {
-              self.emit(self.engineEvents["engine.fatal"], {
-                msg: "engineProcess exited unexpectedly (2)",
-                error: formatErrorForEvent(e),
-                time: getISOStringLocalTz(),
-              });
-            }
-          });
-
           process.stdin.pipe(self.#engineProcess.stdin!);
           process.on("SIGINT", () => {
             self.stop("SIGINT was received");
@@ -666,6 +709,7 @@ class Engine extends EngineProcessAPI {
                           msg: "",
                           time: getISOStringLocalTz(),
                         };
+
                         try {
                           // parse and add stream object instead of just the ID
                           j = JSON.parse(str);
@@ -736,13 +780,35 @@ class Engine extends EngineProcessAPI {
                     time: getISOStringLocalTz(),
                   });
                 }
-              }, 1000);
+              }, 0); // 1000);
 
               next();
             },
           });
           self.#engineProcess.stdout?.pipe(loggerWritable);
           self.#engineProcess.stderr?.pipe(loggerWritable);
+
+          self.#engineProcess.catch((e) => {
+            if (e.killed && e.isCanceled) {
+              // abort was used
+              self.emit(self.engineEvents["engine.inactive"], {
+                msg: "aborted successfully",
+                time: getISOStringLocalTz(),
+              });
+            } else if (e.all) {
+              self.emit(self.engineEvents["engine.fatal"], {
+                msg: "engineProcess exited unexpectedly (1)",
+                error: formatErrorForEvent(e),
+                time: getISOStringLocalTz(),
+              });
+            } else {
+              self.emit(self.engineEvents["engine.fatal"], {
+                msg: "engineProcess exited unexpectedly (2)",
+                error: formatErrorForEvent(e),
+                time: getISOStringLocalTz(),
+              });
+            }
+          });
 
           // wait for the engineProcess to spawn
           await once(self.#engineProcess, "spawn");
@@ -1029,7 +1095,7 @@ class Engine extends EngineProcessAPI {
                 stream.createOutport();
               }
 
-              // best practice is to call prepare here
+              // best practice
               await stream.beforeAdd();
 
               await self._apiPostStream(stream);
@@ -1186,6 +1252,10 @@ class Engine extends EngineProcessAPI {
                 );
                 continue;
               }
+
+              // best practice
+              await stream.afterRemove();
+
               await self._apiDeleteStream(stream);
 
               // if hasOutProc close it, to clean the sock

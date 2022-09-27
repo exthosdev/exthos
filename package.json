@@ -1,5 +1,6 @@
 {
   "name": "exthos",
+  "version": "0.2.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/exthosdev/exthos.git"
@@ -9,7 +10,6 @@
   },
   "homepage": "https://github.com/exthosdev/exthos.git",
   "type": "module",
-  "version": "0.2.1",
   "description": "stream processing in nodejs using the power of golang",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -6,6 +6,8 @@ import { engine, from } from "./hlapis/index.js";
 const exthos = {
   engine,
   from,
+  Engine,
+  Stream
 };
 
 export { Stream, Engine, engine, from };

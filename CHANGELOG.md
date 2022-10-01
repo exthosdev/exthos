@@ -6,7 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ## v0.2.3
 
-- feat: closes #23
+- feat: option to keepAlive engine added. defaults to true (closes #23)
+- fix: config via environment is taken care for boolean and number conversions
+- feat: shutdownAfterInactivityFor is part of extraEngineConfig now
+- fix: integration tests so they don't run infinitely
 
 ## v0.2.2
 

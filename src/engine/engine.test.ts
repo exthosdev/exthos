@@ -4,7 +4,7 @@ import { Stream } from "../stream/stream.js";
 import { Engine } from "./engine.js";
 
 describe("engine start stop", () => {
-  let engine = new Engine();
+  let engine = new Engine({}, {keepAlive: false});
   engine.onAny((eventName: string | string[], eventObj: { stream: Stream }) => {
     if (eventName === "engine.fatal") {
       throw new Error(

@@ -13,7 +13,7 @@ let route = from({ generate: { mapping: 'root = count("gen")' } }).to({
 let route1 = from({ direct: "r1" }).to({ stdout: {} }).start();
 let route2 = from({ direct: "r1" }).to({ stdout: {} }).start();
 
-route.start();
+await route.start();
 
 setTimeout(() => {
   route.stop();

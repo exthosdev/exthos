@@ -70,6 +70,8 @@ type EngineConfig = {
 
 type EngineExtraConfig = {
   isLocal: boolean;
+  keepAlive: boolean;
+  shutdownAfterInactivityForMs: number,
   debugNamespace: string;
   handleProcessUncaughtException: boolean;
   handleProcessUnhandledRejection: boolean;

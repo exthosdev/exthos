@@ -41,8 +41,14 @@ Object.defineProperty(config, "debugLog", {
       .filter((k) => k.startsWith("EXTHOS_"))
       .forEach((k) => {
         let toMergeKey = k.replace(/^EXTHOS_/, "");
-        // (toMerge as any)[toMergeKey] = process.env[k];
-        toMerge = nanojq.set(toMerge, toMergeKey, process.env[k]);
+        let toMergeValue: any = process.env[k];
+        // convert toMergeValue string to boolean or number if possible
+        if (["true", "false"].includes(process.env[k] as string)) {
+          toMergeValue = toMergeValue === "true";
+        } else if (parseFloat(toMergeValue) !== NaN) {
+          toMergeValue = parseFloat(toMergeValue);
+        }
+        toMerge = nanojq.set(toMerge, toMergeKey, toMergeValue);
       });
     merge(config, toMerge);
     config.debugLog("successfully merged env variables EXTHOS_*");

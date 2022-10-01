@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.2.3
+
+- feat: closes #23
+
+## v0.2.2
+
+- feat: using prettier for source code
+- o: stream.ts refactored for testability
+- o: converted some methods to static in Stream
+- o: converted all fs calls to promises instead of sync
+- fix: integration tests werent failing when they should
+- feat: useDefaultEventHanlder now accepts clients to provide optional custom events as params. this is used in integration test
+- o: modified all examples
+- o: converted some method to static in Engine
+- o: minor edits to README
+- o: added "all-bytes" codes to file output example so that the file in testdata folder doesn't explode
+- feat: implemented config mgmt for exthos
+- fix: some issues with config management
+- o: update README for config mgmt
+- fix: if new Engine is created with { metrics: { json_api: {} }, logger: { add_timestamp: "xxx" } }, proper error is not logged
+- o: implement afterRemove method for Stream class
+- fix: to be able to use existing benthos exe
+- feat: now additionally checking that benthos min version is used
+- feat: print the benthos version being used on startup. test on REPL: "import("execa").then(execa => {console.log(execa.execaCommandSync(benthos -v)).stdout})"
+- feat: exposing Engine and Stream classes in default export as well
 - fix: axios errors are now handled for circ ref errors beforing getting passed to formatErrorForEvent
 
 ## v0.2.1

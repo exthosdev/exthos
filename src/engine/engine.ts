@@ -106,7 +106,6 @@ class Engine extends EngineProcessAPI {
 
   #engineProcess!: ExecaChildProcess<string>;
   #abortController = new AbortController();
-  #shutdownAfterInactivityFor: number = 10000; // should usually be more than self._waitForActiveEventMs
   // must be more than _mgmtEventsFreqMs
   #mgmtEventsFreqMs: number = 2000;
   public waitForActiveEventMs: number = 5000; // must be more than 2-3 secs to give time for engine to turn active
@@ -974,18 +973,18 @@ class Engine extends EngineProcessAPI {
             // schedule to stop engine after n seconds ONLY if numStreams is till 0
             self.#debugLog(
               `engine.stop will be called if no streams exist for the next ${
-                self.#shutdownAfterInactivityFor
+                self.#engineExtraConfig.shutdownAfterInactivityForMs
               }ms`
             );
             shutDownTimer = setTimeout(() => {
               if (self.numStreams === 0) {
                 self.stop(
                   `no streams for the last ${
-                    self.#shutdownAfterInactivityFor
+                    self.#engineExtraConfig.shutdownAfterInactivityForMs
                   }ms`
                 );
               }
-            }, self.#shutdownAfterInactivityFor);
+            }, self.#engineExtraConfig.shutdownAfterInactivityForMs);
           } else if (
             self.numStreams > 0 &&
             shutDownTimer! !== undefined &&

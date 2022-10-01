@@ -18,6 +18,7 @@ let config: {
   engineExtraConfig: {
     isLocal: true,
     keepAlive: true,
+    shutdownAfterInactivityForMs: 10000, // should usually be more than waitForActiveEventMs
     debugNamespace: "",
     handleProcessUncaughtException: true,
     handleProcessUnhandledRejection: true,

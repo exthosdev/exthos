@@ -8,11 +8,7 @@ engine.useDefaultEventHandler({
   },
 });
 
-console.log("!!!1")
 await engine.start();
-console.log("!!!2")
 await engine.start();
-console.log("!!!3")
 await engine.stop()
-console.log("!!!4")
 await engine.start();

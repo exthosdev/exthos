@@ -359,11 +359,14 @@ The labels will be sanitised by the stream instace to follow the following rules
 </ul>
 </li>
 <li>Or, you could use the builtin default event handler using: <code>engine.useDefaultEventHandler(addnCustomHandler)</code><ul>
-<li>the default event hander prints all events on the console/stdout,</li>
+<li>the default event handler prints all events on the console/stdout,</li>
 <li>stops the stream on receiving an &quot;engineProcess.stream.error&quot; event 5 times</li>
+<li>you could add custom eventHandler on top of already available using <code>addnCustomHandler</code> e.g.</li>
 </ul>
 </li>
 </ul>
+<pre><code class="language-js"><span class="hl-3">engine</span><span class="hl-2">.</span><span class="hl-5">useDefaultEventHandler</span><span class="hl-2">({</span><br/><span class="hl-2">  </span><span class="hl-4">&quot;engine.fatal&quot;</span><span class="hl-3">:</span><span class="hl-2"> (</span><span class="hl-3">eventObj</span><span class="hl-2">) </span><span class="hl-8">=&gt;</span><span class="hl-2"> {</span><br/><span class="hl-2">    </span><span class="hl-3">console</span><span class="hl-2">.</span><span class="hl-5">log</span><span class="hl-2">(</span><span class="hl-4">&quot;</span><span class="hl-9">\n</span><span class="hl-4">Test EXITED with CODE=1&quot;</span><span class="hl-2">, </span><span class="hl-10">JSON</span><span class="hl-2">.</span><span class="hl-5">stringify</span><span class="hl-2">(</span><span class="hl-3">eventObj</span><span class="hl-2">));</span><br/><span class="hl-2">    </span><span class="hl-3">process</span><span class="hl-2">.</span><span class="hl-5">exit</span><span class="hl-2">(</span><span class="hl-6">1</span><span class="hl-2">);</span><br/><span class="hl-2">  },</span><br/><span class="hl-2">});</span>
+</code></pre>
 <blockquote>
 <p>As mention under <a href="#logging">Logging</a>, all events are also logged under <code>exthos:eventLog</code> namespace</p>
 </blockquote>

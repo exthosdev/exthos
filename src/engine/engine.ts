@@ -959,36 +959,41 @@ class Engine extends EngineProcessAPI {
       try {
         if (!self.#isActive) {
           self.#debugLog("engine is not active. existing mgmt event loop");
-          clearTimeout(shutDownTimer!); // to clearTimout if a stream existed since the timeout was started
-          shutDownTimer!.unref();
+          if (shutDownTimer!) {
+            clearTimeout(shutDownTimer!); // to clearTimout if a stream existed since the timeout was started
+            shutDownTimer!.unref();
+          }
           break;
         }
         // shutdown if no streams running for
-
-        if (
-          self.numStreams === 0 &&
-          !(shutDownTimer! !== undefined && shutDownTimer!.hasRef())
-        ) {
-          // schedule to stop engine after n seconds ONLY if numStreams is till 0
-          self.#debugLog(
-            `engine.stop will be called if no streams exist for the next ${
-              self.#shutdownAfterInactivityFor
-            }ms`
-          );
-          shutDownTimer = setTimeout(() => {
-            if (self.numStreams === 0) {
-              self.stop(
-                `no streams for the last ${self.#shutdownAfterInactivityFor}ms`
-              );
-            }
-          }, self.#shutdownAfterInactivityFor);
-        } else if (
-          self.numStreams > 0 &&
-          shutDownTimer! !== undefined &&
-          shutDownTimer!.hasRef()
-        ) {
-          clearTimeout(shutDownTimer!); // to clearTimout if a stream existed since the timeout was started
-          shutDownTimer!.unref();
+        if (!self.#engineExtraConfig.keepAlive) {
+          if (
+            self.numStreams === 0 &&
+            !(shutDownTimer! !== undefined && shutDownTimer!.hasRef())
+          ) {
+            // schedule to stop engine after n seconds ONLY if numStreams is till 0
+            self.#debugLog(
+              `engine.stop will be called if no streams exist for the next ${
+                self.#shutdownAfterInactivityFor
+              }ms`
+            );
+            shutDownTimer = setTimeout(() => {
+              if (self.numStreams === 0) {
+                self.stop(
+                  `no streams for the last ${
+                    self.#shutdownAfterInactivityFor
+                  }ms`
+                );
+              }
+            }, self.#shutdownAfterInactivityFor);
+          } else if (
+            self.numStreams > 0 &&
+            shutDownTimer! !== undefined &&
+            shutDownTimer!.hasRef()
+          ) {
+            clearTimeout(shutDownTimer!); // to clearTimout if a stream existed since the timeout was started
+            shutDownTimer!.unref();
+          }
         }
         /**
          * ping
@@ -1359,7 +1364,7 @@ class Engine extends EngineProcessAPI {
         }
       } catch (e: any) {
         self.emit(self.engineEvents["engine.error"], {
-          msg: `defaultEngineEventHandler unabel to handle events`,
+          msg: `defaultEngineEventHandler unable to handle events`,
           error: formatErrorForEvent(e),
           time: getISOStringLocalTz(),
         });

@@ -261,8 +261,18 @@ The following namespaces are available within `exthos`:
   - `engine.on("<eventName>", (eventObj) => {...})`
   - `engine.onAny((eventName, eventObj) => {...})` - listens to all events geenrated by the engine and allows you to handle them at one place
 - Or, you could use the builtin default event handler using: `engine.useDefaultEventHandler(addnCustomHandler)`
-  - the default event hander prints all events on the console/stdout,
+  - the default event handler prints all events on the console/stdout,
   - stops the stream on receiving an "engineProcess.stream.error" event 5 times
+  - you could add custom eventHandler on top of already available using `addnCustomHandler` e.g.
+
+```js
+engine.useDefaultEventHandler({
+  "engine.fatal": (eventObj) => {
+    console.log("\nTest EXITED with CODE=1", JSON.stringify(eventObj));
+    process.exit(1);
+  },
+});
+```
 
 > As mention under [Logging](#logging), all events are also logged under `exthos:eventLog` namespace
 

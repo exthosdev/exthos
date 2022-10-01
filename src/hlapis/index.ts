@@ -2,11 +2,10 @@ import { Engine } from "../engine/engine.js";
 import { TInput } from "../types/inputs.js";
 import { from as _from } from "./route.js";
 
+let engine: Engine = new Engine();
 let from = (...inputs: [TInput, ...TInput[]]) => {
   return _from(engine, ...inputs);
 };
-
-let engine: Engine = new Engine();
 
 export { from, engine };
 

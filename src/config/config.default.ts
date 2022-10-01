@@ -17,6 +17,7 @@ let config: {
 } = {
   engineExtraConfig: {
     isLocal: true,
+    keepAlive: true,
     debugNamespace: "",
     handleProcessUncaughtException: true,
     handleProcessUnhandledRejection: true,
